@@ -1,0 +1,28 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#1b302b"><meta name="mobile-web-app-capable" content="yes"><title>Na haczyku — nad jeziorem</title><style>/*STYLE*/</style></head><body>
+<main id="game" class="at-menu">
+<canvas id="view" aria-label="Jezioro w 3D" tabindex="-1"></canvas>
+<header><div class="title"><div class="emblem" aria-hidden="true"><i class="hookmark"></i></div><div><small>NA HACZYKU</small><h1 id="lake">Jezioro Brzozowe</h1></div></div><div class="readings"><b id="clock">07:20</b><span id="cash">25 zł</span><button id="sound" title="Dźwięk" aria-label="Wycisz dźwięk">♪</button></div></header>
+<button id="menuKey" aria-label="Otwórz menu gry">☰ <span>Menu</span></button>
+<div id="location"></div>
+<button id="destination" data-menu="map" hidden></button>
+<button id="ride" data-do="cycle" hidden>Wsiądź na składak</button>
+<div class="vitals"><span>Energia <b id="energy"></b></span><i><u id="energybar"></u></i><span>Siła <b id="strength"></b></span></div>
+<div id="notice" role="status" hidden></div>
+<aside id="lesson" hidden><button id="dismiss" aria-label="Ukryj wskazówkę">×</button><b id="lessonTitle"></b><p id="lessonText"></p></aside>
+<footer><nav><button data-menu="map"><span>⌖</span>Mapa</button><button data-menu="bag"><span>▤</span>Plecak</button><button data-menu="guide"><span>?</span>Poradnik</button></nav>
+<section id="actions"><div id="fightInfo" hidden><b id="fishStatus"></b><div class="tension"><i id="zone"></i><u id="pin"></u></div><small id="fightProgress"></small></div>
+<button id="interact" hidden></button><div id="roomActions" hidden><button data-do="atBar">Karta dań</button><button data-do="exitInn">Wyjdź na taras</button></div><button id="cast"><b>Zarzuć wędkę</b><kbd>SPACJA</kbd></button>
+<label id="rangeLabel"><span id="rangeText">14 m</span><input id="range" type="range" min="5" max="20" value="14" aria-label="Odległość rzutu"><button type="button" id="baitBtn">Robak</button></label></section>
+<div id="controls"><span><kbd>W A S D</kbd> ruch</span><span><kbd>↔</kbd> lub przeciągnij widok</span></div></footer>
+<div id="pad" aria-label="Drążek ruchu" role="group"><span id="stick"></span></div>
+<section id="tableTalk" aria-label="Rozmowa przy stoliku" hidden></section>
+<section id="frontMenu" aria-label="Menu główne" hidden>
+ <div class="menuBody"><div class="menuLocation"><i></i><span id="menuLake">Jezioro Brzozowe</span></div>
+ <h2>Na<br><em>haczyku</em></h2>
+ <div class="menuChoices"><button id="resumeGame" class="menuPrimary"><span>Rozpocznij wyprawę</span><i aria-hidden="true">▷</i></button>
+ <button data-menu="saves">Zapisy gry</button><button data-menu="awards">Osiągnięcia <span id="menuAwards"></span></button><button data-menu="guide">Poradnik</button>
+ <button data-menu="fresh" id="newGame" hidden>Nowa wyprawa</button></div></div>
+ <div class="menuStamp" id="menuStamp"></div>
+</section>
+<dialog id="book" aria-labelledby="bookTitle"><div class="bookHead"><div><small id="bookKicker"></small><h2 id="bookTitle"></h2></div><button id="close" aria-label="Zamknij">×</button></div><article id="content"></article></dialog>
+<div id="error" hidden></div></main><script>/*CODE*/</script></body></html>
