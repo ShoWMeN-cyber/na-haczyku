@@ -11,7 +11,7 @@ function openBook(k){
 }
 function closeBook(){if(book.open)book.close();where="";keys.clear();held=false;if(inMenu)showMenu();else cv.focus({preventScroll:true});updateHUD();}
 function drawBook(){
- $("bookTitle").textContent=where==="home"?localInn().home:where==="restaurant"?localInn().name:titles[where];$("bookKicker").textContent=lake().name+" · "+clockText()+" · "+zl(life.cash);
+ $("bookTitle").textContent=ui(where==="home"?localInn().home:where==="restaurant"?localInn().name:titles[where]);$("bookKicker").textContent=ui(lake().name+" · "+clockText()+" · "+zl(life.cash));
  let html="";
  if(where==="saves"){html=savePanel();}
  else if(where==="awards"){html=awardPanel();}
@@ -76,12 +76,13 @@ function drawBook(){
    html+=row((mapPlaces.indexOf(id)+1)+". "+p.label,(id==="home"?"Dom rybaka · ":id==="restaurant"?"Restauracja · ":id==="town"?"Osada · "+villageEvent()+" · ":"")+"Około "+Math.round(Math.hypot(me.x-p.x,me.z-p.z))+" m",(named?btn("Prowadź pieszo","route|"+id,blocked):"")+btn("Przejdź","go|"+id,blocked));
   }
   const marked=markedReport();if(marked)html+=row("Wskazówka ze stolika",fish[marked.id][0]+" · "+marked.spot+" · "+marked.period);
+  html+="<h3>Na spacer lub rower</h3>"+row(trailNames[life.lake],"Z placu wyjedź na wschód. Szlak ze słupkami okrąża jezioro i wraca do tej samej drogi.");
   html+="<h3>Podróż na inne jezioro</h3>";
   const opened=lakeAccess();
   lakes.forEach((l,i)=>{const locked=!opened.includes(i),g=lakeGates[i];
    const requirements=locked?"<br><strong>Zlecenia "+Math.min(life.paid.length,g.jobs)+"/"+g.jobs+" · Portfel "+Math.min(life.cash,g.cash)+"/"+zl(g.cash)+"</strong>":"";
    html+=row(l.name+" · "+l.region,l.feature+"<br>"+l.fish.map(id=>fish[id][0]).join(" · ")+requirements,btn(i===life.lake?"Jesteś tutaj":locked?"Zablokowane":"Jedź","lake|"+i,locked||i===life.lake||me.aboard||phase!=="idle"));});
-  if(me.aboard)html+="<small>Do podróży zejdź na pomost. Na mapie zaznaczono go kwadratem.</small>";
+  if(me.aboard)html+="<small>Do podróży zejdź na pomost. Na mapie ma numer 4.</small>";
  }else if(where==="bag"){
   html=chipBar([["fish","Ryby"],["food","Prowiant"],["gear","Wyposażenie"],["stats","Postać"]],bagTab,"bagTab");
   if(bagTab==="fish"){
@@ -108,7 +109,8 @@ function drawBook(){
  if(where==="guide"&&guideTab==="world")html+="<h3>Pogoda i woda</h3><p>Obserwuj szuwary, fale i niebo. W trakcie dnia nadciągają chmury, deszcz i mgła. Na Trzcinowym opływaj wysepki, a na Głębokim trzymaj się jeziora przed zaporą.</p><h3>Rower i osada</h3><p>Składak kosztuje 240 zł w domu rybaka. Wsiadaj i zsiadaj klawiszem B albo przyciskiem roweru. W osadzie od 10:00 działa targ, a o 18:00 na plac wychodzą tancerze.</p><h3>Przy stoliku</h3><p>Na mapie wybierz gospodę i „Prowadź pieszo”. Idź po złotych śladach do drzwi. W sali zajmij krzesło, wybierz rozmówcę i zapytaj o ryby. Zaznaczone łowisko pojawi się na mapie i na wodzie do końca bieżącej pory żerowania.</p><h3>Kolejne jeziora</h3><p>Trzcinowe wymaga dwóch rozliczonych zleceń i 450 zł w portfelu. Głębokie wymaga czterech i 1200 zł. Pieniądze zachowujesz.</p><h3>W gospodzie</h3><p>Na tablicy czeka inne danie w każdej okolicy. Basia nalewa jasne pełne i porter bałtycki. Stan upojenia sprawdzisz w plecaku. Po piwie postać kołysze się i trudniej utrzymuje kierunek. Efekt słabnie w miarę upływu czasu, także podczas snu.</p>";
  if(where==="catch"&&awardToast){html+='<p class="awardSummary">Zdobyte osiągnięcie · '+awardToast+"</p>";awardToast="";}
  if(where==="guide"&&guideTab==="keys")html+="<p><b>Na telefonie</b> lewy drążek służy do ruchu, a przeciągnięcie po jeziorze obraca kamerę. Przytrzymaj duży przycisk, aby zwijać żyłkę. Przycisk Menu otwiera zapisy i osiągnięcia.</p>";
- $("content").innerHTML=html;
+ if(where==="guide"&&guideTab==="keys")html+="<p>Na telefonie dotknij „Schowaj wędkę” lub „Wyjmij wędkę”. Na komputerze naciśnij R. Schowanie zarzuconego zestawu zwija żyłkę. Podczas brania i holu dokończ połów.</p>";
+ $("content").innerHTML=uiMarkup(html);
  if(where==="map")chart();
  if(where==="catch")fishPicture(latest.id);
 }

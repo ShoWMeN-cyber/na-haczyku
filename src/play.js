@@ -7,7 +7,7 @@ function save(key=saveID){
  life.position={me:{...me},boat:{...boat},cam,pitch,range,elapsed,phase,cast:cast?{...cast}:null};
  try{localStorage.setItem(key,JSON.stringify(life));saveError=false;return true;}catch{saveError=true;return false;}
 }
-function say(text){$("notice").textContent=text;$("notice").hidden=false;clearTimeout(timer);timer=setTimeout(()=>$("notice").hidden=true,3600);}
+function say(text){noticeSource=text;$("notice").textContent=ui(text);$("notice").hidden=false;clearTimeout(timer);timer=setTimeout(()=>$("notice").hidden=true,3600);}
 function resetCast(){phase="idle";cast=null;held=false;}
 function clockText(){const m=Math.floor(life.time*60)%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
 function setupLake(i,position=null,write=true){
@@ -128,8 +128,14 @@ function spawnCatch(id){
  let info=fish[id],mass=Math.round((info[1]+(info[2]-info[1])*Math.random()**1.5)*100)/100;
  return {id,mass,value:fishValue(id,mass)};
 }
+function toggleRod(){
+ if(inMenu||book.open||me.room||me.cycling||phase==="fight"||phase==="bite")return;
+ if(cast)resetCast();
+ life.rodStowed=!life.rodStowed;
+ sceneTick=-1;updateHUD();save();cv.focus({preventScroll:true});
+}
 function act(){
- if(book.open||me.room||me.cycling)return;
+ if(book.open||me.room||me.cycling||life.rodStowed)return;
  if(phase==="idle"){
   if(life.energy<5){say("Brakuje energii. Zjedz coś z plecaka albo prześpij się w namiocie.");return;}
   let p=targetPoint();if(!p.valid){say("Obróć widok i skieruj znacznik na wodę.");return;}
@@ -237,7 +243,7 @@ function makeScene(t){
  const base=me.aboard?.19+.055*Math.sin(t*1.7)+Math.sin(boarding*Math.PI)*.62:me.y;
  let tip;
  if(me.cycling)m.instance(cycleModel(stat("coat"),0xa5573e,Math.floor(walkCycle*.65)%10,0),me.x,base,me.z,me.a);
- else tip=angler(m,me.x,base,me.z,me.a,stat("coat"),walkCycle,bend,me.aboard,phase!=="idle"||!["restaurant","town"].includes(findPlace()));m.at(0,0,0);
+ else tip=angler(m,me.x,base,me.z,me.a,stat("coat"),walkCycle,bend,me.aboard,!life.rodStowed);m.at(0,0,0);
  if(cast){
   let f=phase==="fight"?cast.progress*.91:0,px=lerp(cast.x,me.x,f),pz=lerp(cast.z,me.z,f);
   const b=phase==="throw"?sat(cast.age/.53):1;px=lerp(tip[0],px,b);pz=lerp(tip[2],pz,b);
@@ -252,7 +258,7 @@ function makeScene(t){
   }
   if(b===1){const radius=.25+(t*.45%1);m.ring(px,.026,pz,radius,.017,0x8ab9b0);}
  }else{
-  const p=targetPoint();if(!me.cycling&&p.valid){m.ring(p.x,.036,p.z,.42,.042,0xf2d9a1);m.ring(p.x,.037,p.z,.075,.026,0xe9cc92);}
+  const p=targetPoint();if(!me.cycling&&!life.rodStowed&&p.valid){m.ring(p.x,.036,p.z,.42,.042,0xf2d9a1);m.ring(p.x,.037,p.z,.075,.026,0xe9cc92);}
  }
  drawWildlife(m,t);
  drawVillagers(m,t);

@@ -114,12 +114,12 @@ function updateInnHUD(place){
  $("roomActions").hidden=!me.room||seated;$("tableTalk").hidden=!seated;
  $("game").classList.toggle("at-table",seated);
  if(seated){const key=[life.lake,life.day,period(life.time),conversation.speaker,conversation.topic,markedReport()?.slot].join("/");
-  if(key!==lastConversation){$("tableTalk").innerHTML=tableDialogue();lastConversation=key;}}
+  if(key!==lastConversation){$("tableTalk").innerHTML=uiMarkup(tableDialogue());lastConversation=key;}}
  $("destination").hidden=!me.guide&&(me.aboard||me.room||place!=="pier"||phase!=="idle");
  if(me.guide){const {trail,next}=routeStep(),p=trail[next],angle=Math.atan2(p.x-me.x,me.z-p.z)-cam;
   const arrow=["↑","↗","→","↘","↓","↙","←","↖"][(Math.round(angle/(TAU/8))%8+8)%8];
   $("destination").textContent=arrow+"  "+v[me.guide].label+" · "+Math.round(Math.hypot(me.x-trail.at(-1).x,me.z-trail.at(-1).z))+" m";
- }else $("destination").textContent="Drogowskaz · dom i gospoda";
+ }else $("destination").textContent=ui("Drogowskaz · dom i gospoda");
 }
 function setRoomSeat(seated){
  const r=me.room;if(!r)return;

@@ -133,3 +133,29 @@ for(const [id,info] of Object.entries(fish)){
 assert.ok(fightDuration.sum>fightDuration.ploc*1.6);closeBook();
 console.log("PASS: physical route from every pier to house, square and inn, walking through doors, seated conversations, marked tips in legal water, dawn/noon/evening/night settlement activity, cash and mission locks, mounted/indoor saves, cycling speed and species-specific fight profiles.");
 `,context);
+vm.runInContext(`
+restoreAdventure(newLife());goPlace("pier");
+assert.equal(language,"pl");const before=JSON.stringify(life);setLanguage("en");assert.equal(JSON.stringify(life),before);
+assert.equal(savedLanguage(),"en");assert.equal(ui("Zarzuć wędkę"),"Cast your line");
+for(const species of Object.values(fish))assert.notEqual(ui(species[0]),species[0]);
+assert.equal(uiMarkup('<button data-do="equip|robak">Załóż</button>'),'<button data-do="equip|robak">Equip</button>');
+openBook("map");assert.ok($("content").innerHTML.includes("Farm track"));closeBook();handle("rod");
+assert.equal(life.rodStowed,true);assert.equal($("cast").hidden,true);act();assert.equal(phase,"idle");
+save(slotKey(1));restoreAdventure(readLife(slotKey(1)));assert.ok(life.rodStowed);handle("rod");act();assert.equal(phase,"throw");
+handle("rod");assert.equal(phase,"idle");assert.ok(life.rodStowed);handle("rod");act();
+for(let i=0;i<650&&phase!=="bite";i++)fishing(.016);
+assert.equal(phase,"bite");toggleRod();assert.equal(phase,"bite");assert.equal(life.rodStowed,false);
+act();assert.equal(phase,"fight");toggleRod();assert.equal(phase,"fight");resetCast();
+for(let i=0;i<3;i++){
+ setupLake(i);const detail=countryside();
+ assert.ok(Math.hypot(detail.trail[0].x-detail.trail.at(-1).x,detail.trail[0].z-detail.trail.at(-1).z)<1e-8);
+ for(const path of [detail.trail,detail.lane])for(let j=1;j<path.length;j++){
+  const a=path[j-1],b=path[j];for(let u=0;u<=1;u+=.05){let x=lerp(a.x,b.x,u),z=lerp(a.z,b.z,u);assert.notEqual(walkHeight(x,z),null,"blocked trail at lake "+i+" "+x+","+z);}
+ }
+ assert.ok(detail.trees.length>500&&detail.props.length>10);goPlace("restaurant");interact();handle("ask|spot");assert.ok($("tableTalk").innerHTML.includes("Where are they biting?"));
+ handle("ask|later");assert.ok($("tableTalk").innerHTML.includes("Try again at"));
+}
+setLanguage("pl");assert.equal(savedLanguage(),"pl");assert.ok($("tableTalk").innerHTML.includes("Gdzie biorą?"));
+console.log("PASS: languages, save compatibility, English directions and table talk, stowing and retrieving the rod, protected fish fights, continuous walkable trails on all lakes.");
+`,context);
+

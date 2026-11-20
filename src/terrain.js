@@ -164,6 +164,10 @@ function buildLand(){
     if(life.lake===1&&j<3)color=j===0?0x807851:0x9a9153;
     if(life.lake===2&&Math.sin(a)<.30&&j<7)color=[0x7b8589,0x989b95,0x858b8b,0xa2a49a,0x838780,0x92968a,0x858c7e][j];
     if(life.lake===2&&levels[j]>2.6)color=levels[j]>4.55?0x72847e:0x586f5a;
+    const mid=(a+b)/2,r=(levels[j]+levels[j+1])/2;
+    if(r>1.6&&r<3.38){const [x,z]=polar(l,mid,r);
+     if(!inTownClearing(x,z)&&!innClearing(x,z,v))color=countrysideGround(x,z,color,i);
+    }
     m.quad(p(a,levels[j]),p(b,levels[j]),p(b,levels[j+1]),p(a,levels[j+1]),color,.92+rnd()*.1);
    }
  }
@@ -197,5 +201,6 @@ function buildLand(){
  buildFootpaths(m);
  addLandmarks(m);
  buildTown(m);
+ addCountryside(m);
  return {land:m,water:w};
 }

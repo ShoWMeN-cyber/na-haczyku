@@ -34,9 +34,9 @@ function checkAwards(){
 function showMenu(){
  inMenu=true;keys.clear();held=false;resetStick();sceneTick=-1;
  $("game").classList.add("at-menu");$("frontMenu").hidden=false;
- $("resumeGame").firstElementChild.textContent=started?"Wróć do gry":hasAdventure?"Kontynuuj wyprawę":"Rozpocznij wyprawę";
- $("newGame").hidden=!(started||hasAdventure);$("menuLake").textContent=lake().region+" · "+lake().name;
- $("menuStamp").textContent="Dzień "+life.day+"  /  "+clockText();
+ $("resumeGame").firstElementChild.textContent=ui(started?"Wróć do gry":hasAdventure?"Kontynuuj wyprawę":"Rozpocznij wyprawę");
+ $("newGame").hidden=!(started||hasAdventure);$("menuLake").textContent=ui(lake().region+" · "+lake().name);
+ $("menuStamp").textContent=ui("Dzień "+life.day+"  /  "+clockText());
  $("menuAwards").textContent=Object.keys(achievementLog().unlocked).length+" / "+trophies.length;
  $("resumeGame").focus({preventScroll:true});
 }

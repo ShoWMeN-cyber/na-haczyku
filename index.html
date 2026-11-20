@@ -48,6 +48,13 @@ dialog:has(.chart){width:min(830px,96vw)}[hidden]{display:none!important}
 @media(max-width:760px){#destination{left:12px;top:138px;max-width:68vw}#ride{right:12px;top:163px;max-width:50vw}#tableTalk{padding:8px 10px}#tableTalk button{min-height:40px}}
 @media(max-width:610px){#destination{top:137px;max-width:72vw}#ride{top:185px}#tableTalk p{font-size:16px}#lesson:not([hidden]){top:192px}}
 @media(max-height:540px) and (orientation:landscape){#destination{left:12px;top:135px;font-size:12px}#ride{top:62px;right:14px}#tableTalk{left:auto;right:9px;bottom:6px;transform:none;width:min(455px,60vw);padding:6px 9px}#tableTalk p{font-size:14px;margin:5px 0}#tableTalk button{min-height:30px;font-size:12px;padding:3px 7px}}
+.languageSwitch{position:absolute;top:max(16px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));display:flex;gap:2px;padding:3px;background:#172c27de;border:1px solid #dac69880;border-radius:5px}
+.languageSwitch button{border:0;border-radius:3px;background:transparent;color:#fff4df;padding:8px 12px;min-height:40px;font:600 14px/1 system-ui}
+.languageSwitch button[aria-pressed=true]{background:#e8cda1;color:#23362c}
+#actions #toggleRod{justify-self:end;gap:12px;padding:6px 10px;min-height:34px;font-size:13px}
+@media(pointer:coarse),(max-width:610px){#actions #toggleRod,.languageSwitch button{min-height:44px}}
+@media(max-height:540px) and (orientation:landscape){.languageSwitch{top:max(8px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right))}}
+
 </style></head><body>
 <main id="game" class="at-menu">
 <canvas id="view" aria-label="Jezioro w 3D" tabindex="-1"></canvas>
@@ -61,7 +68,7 @@ dialog:has(.chart){width:min(830px,96vw)}[hidden]{display:none!important}
 <aside id="lesson" hidden><button id="dismiss" aria-label="Ukryj wskazówkę">×</button><b id="lessonTitle"></b><p id="lessonText"></p></aside>
 <footer><nav><button data-menu="map"><span>⌖</span>Mapa</button><button data-menu="bag"><span>▤</span>Plecak</button><button data-menu="guide"><span>?</span>Poradnik</button></nav>
 <section id="actions"><div id="fightInfo" hidden><b id="fishStatus"></b><div class="tension"><i id="zone"></i><u id="pin"></u></div><small id="fightProgress"></small></div>
-<button id="interact" hidden></button><div id="roomActions" hidden><button data-do="atBar">Karta dań</button><button data-do="exitInn">Wyjdź na taras</button></div><button id="cast"><b>Zarzuć wędkę</b><kbd>SPACJA</kbd></button>
+<button id="toggleRod" data-do="rod" aria-keyshortcuts="R"><span>Schowaj wędkę</span><kbd>R</kbd></button><button id="interact" hidden></button><div id="roomActions" hidden><button data-do="atBar">Karta dań</button><button data-do="exitInn">Wyjdź na taras</button></div><button id="cast"><b>Zarzuć wędkę</b><kbd>SPACJA</kbd></button>
 <label id="rangeLabel"><span id="rangeText">14 m</span><input id="range" type="range" min="5" max="20" value="14" aria-label="Odległość rzutu"><button type="button" id="baitBtn">Robak</button></label></section>
 <div id="controls"><span><kbd>W A S D</kbd> ruch</span><span><kbd>↔</kbd> lub przeciągnij widok</span></div></footer>
 <div id="pad" aria-label="Drążek ruchu" role="group"><span id="stick"></span></div>
@@ -72,6 +79,7 @@ dialog:has(.chart){width:min(830px,96vw)}[hidden]{display:none!important}
  <div class="menuChoices"><button id="resumeGame" class="menuPrimary"><span>Rozpocznij wyprawę</span><i aria-hidden="true">▷</i></button>
  <button data-menu="saves">Zapisy gry</button><button data-menu="awards">Osiągnięcia <span id="menuAwards"></span></button><button data-menu="guide">Poradnik</button>
  <button data-menu="fresh" id="newGame" hidden>Nowa wyprawa</button></div></div>
+ <div class="languageSwitch" role="group" aria-label="Język"><button lang="pl" data-do="language|pl">Polski</button><button lang="en" data-do="language|en">English</button></div>
  <div class="menuStamp" id="menuStamp"></div>
 </section>
 <dialog id="book" aria-labelledby="bookTitle"><div class="bookHead"><div><small id="bookKicker"></small><h2 id="bookTitle"></h2></div><button id="close" aria-label="Zamknij">×</button></div><article id="content"></article></dialog>
@@ -231,6 +239,639 @@ function pickFish(depth,boat,point){
  return ids.find((_,i)=>(n-=weights[i])<=0)||ids.at(-1);
 }
 function passTime(hours){let t=life.time+hours;life.day+=Math.floor(t/24);life.time=t%24;life.buzz=Math.max(0,life.buzz-hours*13);}
+
+// Translate only presentation text. Species, equipment, places and save keys stay stable.
+const languageKey="na-haczyku-language";
+function savedLanguage(){try{return localStorage.getItem(languageKey)==="en"?"en":"pl";}catch{return "pl";}}
+let language=savedLanguage();
+const english=new Map();
+function addEnglish(lines){
+ for(const line of lines.trim().split("\n")){const cut=line.indexOf("|");english.set(line.slice(0,cut),line.slice(cut+1));}
+}
+function ui(value){
+ if(language==="pl"||typeof value!=="string")return value;
+ const s=value.trim();if(!s)return value;
+ const translated=english.get(s)??dynamicEnglish(s);
+ return value.replace(s,()=>translated);
+}
+function dynamicEnglish(s){
+ for(const [pattern,format] of englishPatterns){const m=s.match(pattern);if(m)return format(...m.slice(1));}
+ for(const split of [" · "," / ",", "])if(s.includes(split))return s.split(split).map(ui).join(split);
+ return s;
+}
+const englishPatterns=[
+ [/^(.+) odkłada kubek na parapet\..+$/,n=>n+' sets his mug on the windowsill. “Come in. Let’s see what the kitchen needs today.”'],
+ [/^Puszki w plecaku: (\d+)\. Podgrzanie jednej zajmuje 5 minut\.$/,n=>"Tins in your backpack: "+n+". Heating one takes 5 minutes."],
+ [/^Obecna wyprawa zastąpi grę w miejscu (\d+)\.$/,n=>"Your current trip will replace the game in slot "+n+"."],
+ [/^Zapisano wyprawę w miejscu (\d+)\.$/,n=>"Trip saved to slot "+n+"."],
+ [/^(\d+) z (\d+) zdobytych$/, (n,t)=>n+" of "+t+" unlocked"],
+ [/^Zapis (\d+)$/,n=>"Save slot "+n],
+ [/^([Dd])zień (\d+)(.*)$/, (c,n,tail)=>(c==="D"?"Day ":"day ")+n+ui(tail)],
+ [/^✓\s+Dzień (.+)$/,s=>"✓  Day "+s],
+ [/^Żerują: (.+)$/,s=>"Fish feeding: "+ui(s)],
+ [/^(\d+)\. (.+)$/, (n,s)=>n+". "+ui(s)],
+ [/^Około (\d+) m$/,n=>"About "+n+" m"],
+ [/^(Zlecenia|Portfel) (\d+\/\d+)( zł)?$/, (k,n,u)=>(k==="Zlecenia"?"Jobs ":"Wallet ")+n+(u||"")],
+ [/^(\d+) szt\.$/,n=>n+" fish"],
+ [/^\+(\d+) energii$/,n=>"+"+n+" energy"],
+ [/^(.+) × (\d+)$/, (s,n)=>ui(s)+" × "+n],
+ [/^doświadczenie (\d+)\. Kolejny poziom przy (\d+) punktach\.$/, (n,t)=>n+" XP. Next level at "+t+" XP."],
+ [/^trudność (\d+\/5)$/,n=>"difficulty "+n],
+ [/^wartość w restauracji (.+)$/,s=>"sale price at the inn "+s],
+ [/^Rzut do (\d+) m$/,n=>"Casting range: "+n+" m"],
+ [/^(\d+),(\d+) kg$/, (a,b)=>a+"."+b+" kg"],
+ [/^(\d+),(\d+)$/, (a,b)=>a+"."+b],
+ [/^Hol (\d+%)$/,s=>"Reeling "+s]
+];
+function uiMarkup(html){
+ if(language==="pl")return html;
+ return html.split(/(<[^>]+>)/g).map(part=>part.startsWith("<")?part.replace(/(aria-label|title)="([^"]+)"/g,(_,k,v)=>k+'="'+ui(v)+'"'):ui(part)).join("");
+}
+let languageBindings=[];
+function prepareLanguage(){
+ // Keep the original node and its Polish text so switching back preserves nested controls.
+ for(const el of document.querySelectorAll("#game, #game *, title")){
+  for(const node of el.childNodes)if(node.nodeType===3&&node.nodeValue.trim()&&el.tagName!=="SCRIPT"){
+   const source=node.nodeValue;languageBindings.push(()=>{node.nodeValue=ui(source);});
+  }
+  for(const attr of ["aria-label","title"])if(el.hasAttribute(attr)){
+   const source=el.getAttribute(attr);languageBindings.push(()=>el.setAttribute(attr,ui(source)));
+  }
+ }
+ applyLanguage();
+}
+function applyLanguage(){
+ if(document.documentElement)document.documentElement.lang=language;
+ for(const write of languageBindings)write();
+ for(const b of document.querySelectorAll(".languageSwitch button"))b.setAttribute("aria-pressed",String(b.lang===language));
+}
+function setLanguage(next){
+ if(!["pl","en"].includes(next)||language===next)return;
+ language=next;try{localStorage.setItem(languageKey,next);}catch{}
+ applyLanguage();lastConversation="";saveFeedback="";
+ if(me){updateHUD();if(inMenu)showMenu();if(book.open)drawBook();}
+ if(noticeSource)$("notice").textContent=ui(noticeSource);
+ $("sound").setAttribute("aria-label",ui(sound.enabled?"Wycisz dźwięk":"Włącz dźwięk"));
+ document.querySelector?.('[data-do="language|'+next+'"]')?.focus();
+}
+let noticeSource="";
+addEnglish(`Na haczyku — nad jeziorem|Na haczyku — At the lake
+Jezioro w 3D|3D lake
+Dźwięk|Sound
+Wycisz dźwięk|Mute sound
+Włącz dźwięk|Enable sound
+Otwórz menu gry|Open game menu
+Mapa|Map
+Plecak|Backpack
+Poradnik|Guide
+Energia|Energy
+Siła|Strength
+Ukryj wskazówkę|Dismiss tip
+Karta dań|Food and drink
+Wyjdź na taras|Go out to the terrace
+Zarzuć wędkę|Cast your line
+SPACJA|SPACE
+Odległość rzutu|Casting distance
+ruch|move
+lub przeciągnij widok|or drag to look around
+Drążek ruchu|Movement joystick
+Rozmowa przy stoliku|Table conversation
+Menu główne|Main menu
+Rozpocznij wyprawę|Start fishing
+Wróć do gry|Resume game
+Kontynuuj wyprawę|Continue trip
+Zapisy gry|Saved games
+Osiągnięcia|Achievements
+Nowa wyprawa|New trip
+Zamknij|Close
+Język|Language
+Drogowskaz|Signpost
+dom i gospoda|cottage and inn
+Dom rybaka|Fisherman’s cottage
+Skład wędkarski|Tackle shop
+Zlecenia rybaka|Fishing jobs
+Obóz nad wodą|Lakeside camp
+Wybierz godzinę pobudki|Set your alarm
+Mapa okolicy|Area map
+Twój plecak|Your backpack
+Poradnik wędkarza|Fishing guide
+Pudełko z przynętami|Bait box
+Przystań|Boat landing
+Ryba w podbieraku|In the landing net
+Plac wiejski|Village square
+Zastąpić zapis?|Replace saved game?
+Jezioro Brzozowe|Lake Brzozowe
+Jezioro Trzcinowe|Lake Trzcinowe
+Jezioro Głębokie|Lake Głębokie
+Piaszczysta zatoka i mazurska stanica|Sandy bay and a Masurian boathouse
+Szuwary, wysepki i wieża obserwacyjna|Reed beds, small islands and a lookout tower
+Skalista dolina z kamienną zaporą|Rocky valley with a stone dam
+świt|dawn
+dzień|daytime
+wieczór|evening
+noc|night
+Świt|Dawn
+Południe|Noon
+Wieczór|Evening
+Noc|Night
+Brzeg|Shore
+Pomost|Pier
+Obóz i ognisko|Campsite and campfire
+Pogodnie|Clear skies
+Zachmurzenie|Overcast
+Przelotny deszcz|Rain showers
+Wietrznie|Windy
+Mgła|Fog
+Wędki|Rods
+Kołowrotki|Reels
+Żyłki|Lines
+Haczyki|Hooks
+Przynęty|Bait
+Ubrania|Clothing
+Łodzie|Boats
+Obóz i rower|Camping and cycling
+Wędka z leszczyny|Hazel rod
+Wędka Trzcina|Trzcina rod
+Wędka Głębia|Głębia rod
+Zwykły kołowrotek|Basic reel
+Zwykłe tempo zwijania|Standard retrieve speed
+Kołowrotek Wicher|Wicher reel
+Szybsze zwijanie żyłki|Faster retrieve
+Żyłka 0,20 mm|0.20 mm line
+Żyłka 0,32 mm|0.32 mm line
+Lekka żyłka spławikowa|Light line for float fishing
+Lepiej znosi zrywy dużych ryb|Withstands stronger runs from big fish
+Haczyk nr 10|Size 10 hook
+Podstawowy haczyk|Standard hook
+Haczyk kuty|Forged hook
+Dłużej trzyma rybę na luźnej żyłce|Keeps fish hooked longer when the line is slack
+Robak|Worm
+Kukurydza|Sweetcorn
+Błystka|Spoon lure
+Szczupak i sandacz|Pike and zander
+Kurtka oliwkowa|Olive jacket
+Oliwkowe płótno|Olive canvas
+Kurtka ceglasta|Brick-red jacket
+Ceglasty drelich|Brick-red twill
+Kurtka granatowa|Navy jacket
+Granatowy sztormiak|Navy storm jacket
+Łódka wiosłowa|Rowboat
+Motorówka|Motorboat
+5 m/s, dwie ławki i wiosła|5 m/s, two benches and a pair of oars
+10 m/s, silnik zaburtowy|10 m/s, outboard motor
+Składany grill|Folding grill
+Pieczenie ryb przy namiocie|Grill your catch by the tent
+Kostka planktonowa|Plankton bait cube
+Powoli uwalnia zanętę na tołpygę|Slow-release groundbait for silver carp
+Składak turystyczny|Folding bicycle
+Rower na drogi i leśne ścieżki · do 25 km/h|For village roads and forest tracks · up to 25 km/h
+Trzy płocie|Three roach
+Złów trzy płocie o świcie albo w dzień.|Catch three roach at dawn or during the day.
+Szczupak na kolację|Pike for supper
+Złów szczupaka o masie co najmniej 2 kg.|Catch a pike weighing at least 2 kg.
+Noc na Głębokim|A night on Lake Głębokie
+Złów suma z łodzi na głębokiej wodzie wieczorem lub nocą.|Catch a wels catfish from a boat in deep water in the evening or at night.
+Obiad pod namiotem|A campsite dinner
+Upiecz rybę na własnym grillu.|Cook a fish on your own grill.
+Pełna siatka|A full keepnet
+Wyholuj osiem ryb dowolnego gatunku.|Land eight fish of any species.
+Drobny połów|Small fry
+Złów trzy ukleje lub kiełbie na Brzozowym.|Catch three bleak or gudgeon on Lake Brzozowe.
+Poleska wyprawa|A trip to Polesie
+Złów cztery ryby na Trzcinowym.|Catch four fish on Lake Trzcinowe.
+Kanapka z serem|Cheese sandwich
+Puszka fasolki|Tin of beans
+Gorąca fasolka|Hot beans
+Pieczona ryba|Grilled fish
+Dzyndzałki z hreczką|Masurian buckwheat dumplings
+Pierogi z kaszą gryczaną i okrasą|Buckwheat dumplings with a savoury topping
+Placki ziemniaczane ze śmietaną|Potato pancakes with sour cream
+Z patelni, posypane szczypiorkiem|Fresh from the pan, topped with chives
+Kwaśnica na żeberku|Highland sauerkraut and rib soup
+Góralska zupa z kiszonej kapusty i ziemniaków|Beskid sauerkraut soup with pork ribs and potatoes
+Jasne pełne|Pale lager
+Złociste piwo z lokalnego browaru · kufel 0,5 l|Golden beer from the local brewery · 0.5 L mug
+Porter bałtycki|Baltic porter
+Ciemne, słodowe piwo · pokal 0,33 l|Dark, malty beer · 0.33 L glass
+Trzeźwy|Sober
+Lekko podchmielony|Slightly tipsy
+Podchmielony|Tipsy
+Mocne upojenie|Drunk
+Targ na placu|Market on the square
+Wiejska potańcówka|Village dance
+Poranny obchód|Morning rounds
+Wieś śpi|The village is asleep
+Brzezina|Birch grove
+Pola żyta|Rye fields
+Stary sad|Old orchard
+Olszyna|Alder woods
+Mokradła|Wetlands
+Wilgotne łąki|Water meadows
+Bór świerkowy|Spruce forest
+Piarg|Scree slope
+Hala|Mountain pasture
+Droga między polami|Farm track
+Grobla olszowa|Alder causeway
+Ścieżka pod granią|Ridge trail
+Schowaj wędkę|Stow rod
+Wyjmij wędkę|Take out rod`);
+addEnglish(`Płoć|Roach
+Leszcz|Common bream
+Karaś|Crucian carp
+Lin|Tench
+Karp|Common carp
+Szczupak|Northern pike
+Okoń|European perch
+Sandacz|Zander
+Sum|Wels catfish
+Wzdręga|Rudd
+Ukleja|Bleak
+Jaź|Ide
+Amur|Grass carp
+Węgorz|European eel
+Krąp|White bream
+Sieja|Whitefish
+Sielawa|Vendace
+Pstrąg jeziorowy|Lake trout
+Kiełb|Gudgeon
+Jazgarz|Ruffe
+Stynka|European smelt
+Boleń|Asp
+Karaś srebrzysty|Prussian carp
+Słonecznica|Sunbleak
+Sumik karłowaty|Brown bullhead
+Tołpyga biała|Silver carp
+Kleń|Chub
+Miętus|Burbot
+Brzana|Barbel
+Jelec|Dace
+Pierwszy połów|First catch
+Wyholuj pierwszą rybę.|Land your first fish.
+Własna przystań|A boat of your own
+Kup pierwszą łódź.|Buy your first boat.
+Kuchnia polowa|Camp cook
+Upiecz rybę na grillu.|Cook a fish on the grill.
+Trzy jeziora|Three lakes
+Odwiedź wszystkie trzy jeziora.|Visit all three lakes.
+Nocne branie|Night bite
+Wyholuj rybę pomiędzy 21:00 a 5:00.|Land a fish between 21:00 and 05:00.
+Okaz|Trophy fish
+Złów rybę o masie co najmniej 5 kg.|Catch a fish weighing at least 5 kg.
+Żywy atlas|Living atlas
+Złów dziewięć różnych gatunków.|Catch nine different species.
+Polskie wody|Polish waters
+Złów osiemnaście różnych gatunków.|Catch eighteen different species.
+Człowiek znad jeziora|Lakeside regular
+Odbierz nagrody za cztery zlecenia.|Claim rewards for four jobs.
+Wśród swoich|One of the locals
+Zapytaj miejscowego wędkarza o łowisko.|Ask a local angler where the fish are biting.
+Poczta wędkarska|Word on the water
+Złów wskazany gatunek w miejscu zaznaczonym po rozmowie.|Catch the suggested species at the spot a local marked for you.
+Pewna ręka|Steady hand
+Wyholuj rybę na piątym poziomie trudności.|Land a fish on difficulty level five.
+Znawca regionu|Local expert
+Złów wszystkie gatunki w tym regionie.|Catch every species in this region.
+Pełny atlas|Complete atlas
+Złów wszystkie trzydzieści gatunków.|Catch all thirty species.
+Na każde zawołanie|At your service
+Rozlicz wszystkie zlecenia u rybaków.|Complete every job for the fishermen.
+Zapis automatyczny|Autosave
+Pojawi się po rozpoczęciu wyprawy.|Your first trip will appear here.
+Wczytaj|Load
+Zapisz|Save
+Wolne miejsce|Empty slot
+Zapisy są przechowywane w tej przeglądarce.|Your games are saved in this browser.
+Przeglądarka zablokowała zapis. Sprawdź dostęp do pamięci witryny.|Saving was blocked. Check this site’s storage permissions in your browser.
+Tego zapisu nie udało się odczytać.|Could not read this saved game.
+Wczytano wyprawę.|Trip loaded.
+Osiągnięcie|Achievement
+Zdobyte osiągnięcie|Achievement unlocked
+Targ|Market
+Od 10:00 do 18:00 mieszkańcy schodzą się na plac.|The villagers gather in the square between 10:00 and 18:00.
+Potańcówka|Village dance
+Od 18:00 do północy gra akordeon. Na placu tańczą pary.|From 18:00 until midnight, couples dance to an accordion in the square.
+Wróć na plac|Return to the square
+Rozpoczniesz pierwszy dzień z podstawową wędką. Nowa wyprawa zastąpi zapis automatyczny. Ręczne zapisy będą dostępne w menu.|Start again on day one with a basic rod. This replaces your autosave. Your manual saves will still be available in the menu.
+Rozpocznij od nowa|Start over
+Wróć|Back
+Zastąp zapis|Replace save
+Anuluj|Cancel
+Zlecenia|Jobs
+Zapłata za udane połowy i obozową kuchnię.|Earn money for landing fish and cooking at camp.
+Zobacz zlecenia|View jobs
+Sprzęt i łodzie|Tackle and boats
+Wędki, kołowrotki, żyłki, haczyki, przynęty, ubrania i grill.|Browse rods, reels, lines, hooks, bait, clothing and a grill.
+Otwórz sklep|Open shop
+Masz już składak. Na dworze wybierz przycisk roweru lub naciśnij B.|You own the folding bike. Use the bike button or press B outdoors to ride.
+Rower składany za 240 zł. Na dworze można wsiadać i zsiadać klawiszem B albo przyciskiem.|A folding bike costs 240 zł. Outdoors, press B or tap the bike button to get on or off.
+Zobacz w sklepie|View in shop
+Łóżko na poddaszu|Bed in the loft
+Sen uzupełnia energię. Możesz wybrać godzinę pobudki.|Sleep restores energy. Choose the time you want to wake up.
+Prześpij się|Get some sleep
+W użyciu|In use
+Wybierz|Select
+Wróć do rybaka|Back to the fisherman
+Rybak zapisuje postęp od pierwszego połowu. Po nagrodę zajrzyj do niego osobiście.|The fisherman keeps track from your first catch. Visit him to collect your pay.
+Odebrano|Claimed
+Odbierz|Claim
+Twoja łódź będzie czekać przy prawej burcie pomostu. Po klucze zajdź do domu rybaka.|Your boat will be on the right side of the pier. Visit the fisherman’s cottage to buy one.
+Idź do domu rybaka|Visit the fisherman’s cottage
+Wróć do sali|Back to the dining room
+Dziś w gospodzie|Today’s special
+Zamów|Order
+Piwo na miejscu|Beer on tap
+Wypij|Drink
+Stan postaci|Condition
+Skup ryb u Basi|Sell your fish to Basia
+Twój połów|Your catch
+Sprzedaj wszystkie|Sell all
+Sprzedaj|Sell
+Na wynos|Takeaway
+Gotowa do zjedzenia|Ready to eat
+Do podgrzania na ognisku|Heat over the campfire
+po podgrzaniu +40 energii|+40 energy when hot
+Świeże ryby|Fresh fish
+do pieczenia na grillu|ready for the grill
+Przy namiotach pali się ognisko. Na kamieniach jest miejsce na puszkę.|A fire burns beside the tents. There’s room on the stones to heat a tin.
+Namiot|Tent
+Wybierz porę pobudki i odzyskaj energię.|Set a wake-up time and get your energy back.
+Idź spać|Go to sleep
+Ognisko|Campfire
+Podgrzej puszkę|Heat a tin
+Rozstawiony przy namiocie. Pieczenie trwa 15 minut.|Your grill is set up beside the tent. Cooking takes 15 minutes.
+Składany grill kupisz w domu rybaka za 78 zł.|Buy a folding grill at the fisherman’s cottage for 78 zł.
+Idź do rybaka|Visit the fisherman
+Do pieczenia potrzebujesz surowej ryby.|You need a raw fish to use the grill.
+Upiecz rybę|Grill fish
+Budzik dzwoni o najbliższej wybranej godzinie. Po śnie energia wraca do 100.|Your alarm rings the next time the clock reaches your chosen hour. Sleep restores energy to 100.
+Nastaw budzik|Set alarm
+Mapa jeziora, osady i dróg. Czerwona kropka oznacza gracza.|Map of the lake, village and roads. The red dot marks your position.
+Moja pozycja|My position
+Cała okolica|Whole area
+Miejsca nad jeziorem|Places by the lake
+Restauracja|Restaurant
+Osada|Village
+Prowadź pieszo|Show walking route
+Przejdź|Go there
+Wskazówka ze stolika|Angler’s tip
+Podróż na inne jezioro|Travel to another lake
+Jesteś tutaj|You are here
+Zablokowane|Locked
+Jedź|Travel
+Do podróży zejdź na pomost. Na mapie ma numer 4.|Step onto the pier before travelling. It is marked with a 4 on the map.
+Ryby|Fish
+Prowiant|Provisions
+Wyposażenie|Equipment
+Postać|Character
+Siatka jest pusta. Zarzuć wędkę z pomostu albo z łodzi.|Your keepnet is empty. Cast from the pier or a boat.
+W restauracji możesz sprzedać wybrane ryby. Przy namiocie możesz je upiec.|Sell your fish at the inn or grill them at camp.
+Podgrzej na ognisku.|Heat over the campfire.
+Zjedz|Eat
+odpoczynek i jedzenie odnawiają energię.|rest and food restore energy.
+Zapis|Save
+Ta przeglądarka blokuje zapis.|This browser is blocking saves.
+Automatycznie w tej przeglądarce.|Saved automatically in this browser.
+Wybrano|Selected
+Załóż|Equip
+Ryba trafiła do siatki.|The fish is in your keepnet.
+Wróć nad wodę|Back to the water
+Życie nad wodą|Life by the lake
+Atlas ryb|Fish atlas
+Sterowanie|Controls
+tylko z łodzi w głębi jeziora|only from a boat in deep water
+Pogoda|Weather
+Wstań|Stand up
+Gdzie biorą?|Where are they biting?
+Na co łowić?|Which bait works?
+A później?|How about later?
+Na mapie ✓|Marked on map ✓
+Zaznacz łowisko|Mark fishing spot`);
+addEnglish(`Znajdź miejsce|Find a spot
+Stań nad wodą. Obróć widok i ustaw odległość suwakiem. Jasny okrąg na jeziorze wskazuje miejsce rzutu.|Stand by the water. Turn to aim and use the slider to set your distance. The pale ring shows where your float will land.
+Obserwuj spławik|Watch the float
+Zarzuć spacją lub przyciskiem. Gdy spławik zanurkuje i pojawi się „Zatnij!”, naciśnij ponownie.|Press Space or tap Cast to throw your line. When the float goes under and “Strike!” appears, press again.
+Wyholuj rybę|Land the fish
+Przytrzymuj spację lub przycisk zwijania, aż wskazówka zbliży się do końca zielonego pola. Puść na chwilę i powtarzaj. Na zbyt mocnej żyłce ryba ją zerwie, a na luźnej spadnie z haczyka.|Hold Space or the reel button until the marker nears the edge of the green zone. Release briefly and repeat. Too much tension snaps the line. Too little lets the fish slip free.
+Pierwsza łódka|Your first boat
+Za trzy płocie rybak wypłaca 115 zł. Dołóż pieniądze ze sprzedaży połowu lub rozlicz zlecenie „Pełna siatka”. Wiosłówka kosztuje 160 zł. Kup ją w składzie wędkarskim i wsiądź przy pomoście.|The fisherman pays 115 zł for three roach. Sell your catch or complete “A full keepnet” to earn the rest. A rowboat costs 160 zł. Buy one at the tackle shop and board at the pier.
+Energia i siła|Energy and strength
+Wiosłowanie i hol męczą. W restauracji kupisz kanapkę, puszkę fasolki lub rybę. Kanapkę zjesz od razu z plecaka. Puszkę podgrzej na ognisku. Do pieczenia ryb kup grill i podejdź do namiotów. Każdy udany połów daje doświadczenie i rozwija siłę.|Rowing and reeling use energy. The inn sells sandwiches, tinned beans and fish. Eat a sandwich from your backpack or heat a tin over the campfire. Buy a grill to cook fish by the tents. Every fish you land builds experience and strength.
+Sen i sąsiedzi|Sleep and neighbours
+W namiocie i w domu rybaka wybierz godzinę pobudki. Inne gatunki żerują o świcie (5–10), w dzień (10–17), wieczorem (17–21) i nocą (21–5). Żaglówki oraz łodzie miejscowych mają własne trasy. Omiń je podczas pływania.|Choose a wake-up time in the tent or cottage. Different fish feed at dawn (05–10), by day (10–17), in the evening (17–21) and at night (21–05). Give way to the sailboats and local anglers on the water.
+— chodzenie. Na łodzi W i S sterują prędkością, A i D skręcają.|— walk. In a boat, W and S change speed, A and D steer.
+Przeciąganie widoku lub strzałki|Drag the view or use the arrow keys
+— obrót kamery.|— look around.
+Spacja|Space
+— rzut, zacięcie lub przytrzymanie do holu.|— cast, strike or hold to reel in.
+— skorzystaj z miejsca obok postaci.|— interact with a nearby place.
+— mapa i przejścia.|— map and travel.
+— plecak.|— backpack.
+— poradnik.|— guide.
+— zamknij okno.|— close the window.
+Na ekranie dotykowym do kierowania postacią lub łodzią służy okrągły drążek.|Use the round joystick on a touchscreen to walk or steer your boat.
+Pogoda i woda|Weather and water
+Obserwuj szuwary, fale i niebo. W trakcie dnia nadciągają chmury, deszcz i mgła. Na Trzcinowym opływaj wysepki, a na Głębokim trzymaj się jeziora przed zaporą.|Watch the reeds, waves and sky. Clouds, showers and fog move in throughout the day. Steer around the islands on Trzcinowe and stay on the lake side of the dam on Głębokie.
+Rower i osada|Cycling and village life
+Składak kosztuje 240 zł w domu rybaka. Wsiadaj i zsiadaj klawiszem B albo przyciskiem roweru. W osadzie od 10:00 działa targ, a o 18:00 na plac wychodzą tancerze.|A folding bike costs 240 zł at the fisherman’s cottage. Press B or tap the bike button to get on or off. The village market opens at 10:00. At 18:00 the dancing begins in the square.
+Przy stoliku|At the anglers’ table
+Na mapie wybierz gospodę i „Prowadź pieszo”. Idź po złotych śladach do drzwi. W sali zajmij krzesło, wybierz rozmówcę i zapytaj o ryby. Zaznaczone łowisko pojawi się na mapie i na wodzie do końca bieżącej pory żerowania.|Find the inn on the map and select “Show walking route”. Follow the gold markers to the door. Take a seat, pick a local and ask where the fish are biting. A marked spot stays on the map and water until the current feeding period ends.
+Kolejne jeziora|Unlocking lakes
+Trzcinowe wymaga dwóch rozliczonych zleceń i 450 zł w portfelu. Głębokie wymaga czterech i 1200 zł. Pieniądze zachowujesz.|To unlock Trzcinowe, claim two job rewards and have 450 zł in your wallet. Głębokie takes four jobs and 1,200 zł. You keep the money.
+W gospodzie|At the inn
+Na tablicy czeka inne danie w każdej okolicy. Basia nalewa jasne pełne i porter bałtycki. Stan upojenia sprawdzisz w plecaku. Po piwie postać kołysze się i trudniej utrzymuje kierunek. Efekt słabnie w miarę upływu czasu, także podczas snu.|Each inn serves a local speciality. Basia pours pale lager and Baltic porter. Check your condition in the backpack. Drinking makes you sway and affects your steering. It wears off with time, including while you sleep.
+Na telefonie|On a phone
+lewy drążek służy do ruchu, a przeciągnięcie po jeziorze obraca kamerę. Przytrzymaj duży przycisk, aby zwijać żyłkę. Przycisk Menu otwiera zapisy i osiągnięcia.|use the left joystick to move and drag across the lake to look around. Hold the large button to reel in. Open Menu to find saves and achievements.
+Wsiadasz na składak. Kieruj tak jak podczas chodzenia.|You’re on your bike. Use the walking controls to steer.
+Składasz rower i idziesz pieszo.|You fold the bike and continue on foot.
+Najpierw wróć łodzią do pomostu.|Bring your boat back to the pier first.
+Podejdź do tego miejsca wzdłuż brzegu.|Follow the shore to reach this spot.
+Jesteś na pomoście.|You’re on the pier.
+Brakuje energii. Zjedz coś z plecaka albo prześpij się w namiocie.|Low energy. Eat something from your backpack or sleep in the tent.
+Obróć widok i skieruj znacznik na wodę.|Turn to aim the marker at the water.
+Zestaw zwinięty.|Line retrieved.
+Cisza na wodzie. Sprawdź pory żerowania w poradniku.|No bites. Check the feeding times in the guide.
+Ryba wypluła przynętę. Zatnij tuż po zanurzeniu spławika.|The fish spat out the bait. Strike just as the float goes under.
+Żyłka pękła. Puść zwijanie, kiedy ryba szarpie.|The line snapped. Ease off the reel when the fish surges.
+Ryba zeszła z haczyka. Zwijaj, gdy żyłka się luzuje.|The fish slipped off the hook. Reel in when the line goes slack.
+Gorąca fasolka jest w plecaku.|The hot beans are in your backpack.
+Pieczona ryba jest w plecaku.|The grilled fish is in your backpack.
+Pobudka|Wake-up
+Wsiądź do łodzi|Board your boat
+Przybij do pomostu|Dock at the pier
+Wejdź do domu rybaka|Enter the fisherman’s cottage
+Wejdź do restauracji|Enter the inn
+Namioty i ognisko|Tents and campfire
+Wejdź|Enter
+Plac|Square
+Otwórz drzwi na taras|Open the terrace door
+Podejdź do stolika|Walk to the table
+Usiądź z wędkarzami|Sit with the anglers
+Zsiądź z roweru|Get off the bike
+Wsiądź na składak|Get on the bike
+Zwiń zestaw|Retrieve line
+Zatnij!|Strike!
+Zwijasz|Reeling
+puść, by odpuścić|release to ease off
+Przytrzymaj i zwijaj|Hold to reel
+Branie!|A bite!
+Napięcie żyłki|Line tension
+Rzut|Casting
+Hol|Reeling
+puść zwijanie|ease off the reel
+zwijaj teraz|reel now
+zielone pole|green zone
+Naciśnij spację lub przycisk zacięcia.|Press Space or tap Strike.
+odpuść|ease off
+zwijaj|reel in
+zryw ryby|fish surging
+Pierwsze wypłynięcie|Your first boat trip
+Wypłyń na jezioro, zatrzymaj łódź i zarzuć wędkę. Po powrocie wybierz „Przybij do pomostu”.|Row out onto the lake, stop your boat and cast. When you return, select “Dock at the pier”.
+Zarzuć wędkę w jasny okrąg. Gdy spławik zanurkuje, zatnij. Podczas holu przytrzymuj i puszczaj zwijanie.|Cast into the pale ring. Strike when the float goes under. Hold and release the reel button to bring the fish in.
+Do uruchomienia widoku 3D włącz przyspieszenie grafiki w przeglądarce i otwórz grę ponownie.|To start the 3D view, enable graphics acceleration in your browser and reopen the game.
+Przywracanie obrazu 3D…|Restoring the 3D view…
+przy piaszczystym brzegu|by the sandy shore
+na lewo od pomostu|to the left of the pier
+na wodzie przed stanicą|out in front of the boathouse
+w głębi brzozowej zatoki|farther into the birch-lined bay
+przy skraju szuwarów|along the edge of the reed beds
+przy trzcinach obok obozu|by the reeds beside the campsite
+od zachodniej strony wieży|west of the lookout tower
+w przesmyku na wschodzie|in the eastern channel
+przy kamienistym brzegu|by the stony shore
+przy brzegu pod lasem|by the wooded bank
+na głębokiej wodzie przed zaporą|in deep water in front of the dam
+w głębi górskiej zatoki|farther into the mountain bay
+Na spacer lub rower|Walking and cycling
+Z placu wyjedź na wschód. Szlak ze słupkami okrąża jezioro i wraca do tej samej drogi.|Head east from the village square. Follow the waymarked trail around the lake and back to the same road.
+Na telefonie dotknij „Schowaj wędkę” lub „Wyjmij wędkę”. Na komputerze naciśnij R. Schowanie zarzuconego zestawu zwija żyłkę. Podczas brania i holu dokończ połów.|On a phone, tap “Stow rod” or “Take out rod”. On a computer, press R. Stowing a cast rod retrieves the line. If there’s a bite or you’re playing a fish, finish the catch first.`);
+for(const f of Object.values(fish))english.set(f[0].toLocaleLowerCase("pl"),english.get(f[0]).toLowerCase());
+
+// The paper map and the landscape share world coordinates, including the bends in the trail.
+const hinterlandTypes = [
+ ["birch","hay","orchard","birch","hay","orchard","birch","hay"],
+ ["alder","marsh","meadow","alder","marsh","alder","meadow","marsh"],
+ ["spruce","scree","spruce","pasture","spruce","scree","spruce","pasture"]
+];
+const hinterlandNames = {
+ birch:"Brzezina",hay:"Pola żyta",orchard:"Stary sad",alder:"Olszyna",marsh:"Mokradła",meadow:"Wilgotne łąki",
+ spruce:"Bór świerkowy",scree:"Piarg",pasture:"Hala"
+};
+const mapTints={birch:"#a5b488",hay:"#d5bd83",orchard:"#b2bb86",alder:"#91a78d",marsh:"#acc2a5",meadow:"#c0c899",spruce:"#8daba0",scree:"#b5b3a5",pasture:"#b7bf92"};
+const trailNames=["Droga między polami","Grobla olszowa","Ścieżka pod granią"];
+const countrysideCache=new Map();
+const trailRadius=a=>3.13+.13*Math.sin(3*a+lake().phase)+.10*Math.cos(5*a);
+const terrainColors={birch:0x839260,orchard:0x92a261,alder:0x78885c,marsh:0x979761,meadow:0xa1ab6e,spruce:0x647b63,scree:0x94978b,pasture:0x98a06b,hay:0xc5b16f};
+const parcelSites=[
+ [[.31,2.52,29,14],[.91,2.58,18,10],[1.88,2.42,23,13],[2.75,2.66,35,17],[3.38,2.14,20,13],[4.23,2.08,15,12],[4.83,2.76,34,18],[5.64,2.31,23,12]],
+ [[.22,2.20,26,13],[1.18,2.60,24,10],[2.17,2.53,29,12],[2.84,2.22,31,13],[3.41,2.46,34,15],[4.07,2.19,23,12],[4.90,2.58,22,11],[5.81,2.12,25,13]],
+ [[.40,2.46,28,16],[1.09,2.27,17,11],[1.86,2.44,21,15],[2.61,2.17,18,10],[3.43,2.51,28,14],[4.11,2.42,24,11],[4.74,2.61,25,15],[5.72,2.20,18,12]]
+];
+function countrysideGround(x,z,original,sector){
+ for(const p of countryside().patches){
+  const dx=x-p.center.x,dz=z-p.center.z;if(Math.abs(dx)>p.w+p.h||Math.abs(dz)>p.w+p.h)continue;
+  const u=(dx*p.cos+dz*p.sin)/p.w,v=(-dx*p.sin+dz*p.cos)/p.h;
+  if(Math.abs(u)**p.power+Math.abs(v)**p.power>1)continue;
+  return p.type==="hay"&&sector%4===0?0xbba66b:terrainColors[p.type];
+ }
+ return original;
+}
+function countryside(){
+ if(countrysideCache.has(life.lake))return countrysideCache.get(life.lake);
+ const l=lake(),rand=seeded(59121+l.seed),point=(a,r)=>{const [x,z]=polar(l,a,r);return {x,z};};
+
+ const trail=Array.from({length:193},(_,i)=>{const a=i*TAU/192;return point(a,trailRadius(a));});
+ const town=townSite(),gate={x:town.x+19,z:town.z-2};
+ const junction=trail.slice(0,49).reduce((best,p)=>p.x>=gate.x&&Math.hypot(p.x-gate.x,p.z-gate.z)<Math.hypot(best.x-gate.x,best.z-gate.z)?p:best,trail[0]);
+ const lane=[{x:town.x,z:gate.z},gate,{x:lerp(gate.x,junction.x,.55),z:lerp(gate.z,junction.z,.32)},junction];
+ const patches=[],trees=[],props=[];
+ for(let i=0;i<8;i++){
+  const type=hinterlandTypes[life.lake][i],[a,r,w,h]=parcelSites[life.lake][i],center=point(a,r);
+  const angle=a+1.22+.51*Math.sin(i*1.7+l.phase),cos=Math.cos(angle),sin=Math.sin(angle);
+  const power=type==="hay"||type==="orchard"?5:2;
+  const worldPoint=(u,v)=>({x:center.x+u*w*cos-v*h*sin,z:center.z+u*w*sin+v*h*cos});
+  const rim=Array.from({length:44},(_,j)=>{const b=j*TAU/44,k=power===2?1+.09*Math.sin(3*b+i)+.06*Math.cos(5*b+.7*i):1;
+   const edge=n=>Math.sign(n)*Math.abs(n)**(2/power)*k;return worldPoint(edge(Math.cos(b)),edge(Math.sin(b)));});
+  patches.push({type,center,w,h,cos,sin,power,rim});
+  for(let j=0;j<80;j++){
+   const u=rand()*2-1,vv=rand()*2-1;if(Math.abs(u)**power+Math.abs(vv)**power>.92)continue;
+   const p=worldPoint(u,vv);if(ratio(p.x,p.z)<1.2||nearTrail(p,trail,2.4))continue;
+   if(inTownClearing(p.x,p.z)||innClearing(p.x,p.z,{restaurant:innSite()})||nearTrail(p,lane,3.5))continue;
+   if(["birch","alder","spruce"].includes(type))trees.push({...p,type,size:.6+rand()*.8,variant:j%4});
+   else if(j<18)props.push({...p,type,size:.72+rand()*.48,angle:a+j*.41});
+  }
+ }
+ // A broken, layered tree line encloses the entire playable area, also behind open fields.
+ for(let i=0;i<480;i++){
+  const a=(i+rand())*TAU/480,r=3.60+rand()*.52+.12*Math.sin(a*7)+.08*Math.cos(a*3),p=point(a,r);
+  if(inTownClearing(p.x,p.z)||nearTrail(p,lane,3))continue;
+  trees.push({...p,type:["birch","alder","spruce"][life.lake],size:.6+rand()*.82,variant:i%4});
+ }
+ const result={trail,lane,patches,trees,props};countrysideCache.set(life.lake,result);return result;
+}
+function nearTrail(p,path,width){
+ for(let i=1;i<path.length;i++){
+  const a=path[i-1],b=path[i],dx=b.x-a.x,dz=b.z-a.z,t=sat(((p.x-a.x)*dx+(p.z-a.z)*dz)/(dx*dx+dz*dz||1));
+  if(Math.hypot(p.x-a.x-t*dx,p.z-a.z-t*dz)<width)return true;
+ }
+ return false;
+}
+function addCountryside(m){
+ const {trail,lane,props}=countryside();
+ m.at(0,0,0);
+ function road(points,halfWidth){
+  let prev;
+  points.forEach((p,i)=>{
+   const a=points[Math.max(0,i-1)],b=points[Math.min(points.length-1,i+1)],len=Math.hypot(b.x-a.x,b.z-a.z)||1;
+   const edges=[-1,1].map(k=>{const x=p.x-k*(b.z-a.z)*halfWidth/len,z=p.z+k*(b.x-a.x)*halfWidth/len;return [x,landY(x,z)+.13,z];});
+   if(prev)m.quad(prev[0],edges[0],edges[1],prev[1],life.lake===2?0xaa9d82:0xc4b38d);
+   prev=edges;
+  });
+ }
+ road(trail,1.05);
+ const approach=[];lane.slice(1).forEach((b,i)=>{const a=lane[i],n=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/2);for(let j=0;j<n;j++)approach.push({x:lerp(a.x,b.x,j/n),z:lerp(a.z,b.z,j/n)});});approach.push(lane.at(-1));road(approach,1.12);
+ for(const p of props){
+  const {x,z,type,size:s}=p;m.at(x,landY(x,z)-.05,z,p.angle);
+  if(type==="orchard"){m.pole([0,0,0],[.1,1.85*s,0],.17*s,.11*s,0x725a44);for(let j=0;j<3;j++){const a=j*2.1;m.oval(Math.cos(a)*.7*s,(2.05+j*.18)*s,Math.sin(a)*.7*s,1.20*s,1.03*s,1.17*s,j%2?0x788a4a:0x677e44,6);}}
+  else if(type==="hay"){m.pole([-.73*s,.83*s,0],[.73*s,.83*s,0],.82*s,.82*s,0xb69a59,10);for(const k of [-.42,.42])m.pole([k*s,.83*s,0],[(k+.036)*s,.83*s,0],.831*s,.831*s,0x948153,10);}
+  else if(type==="scree")m.oval(0,.32*s,0,1.66*s,.91*s,1.28*s,0x91938b,7);
+  else if(type==="marsh"||type==="meadow"){for(let j=0;j<18;j++){let a=j*2.4,dx=Math.cos(a)*j*.09,dz=Math.sin(a)*j*.09;m.tri([dx-.065,0,dz],[dx+.08,0,dz],[dx+.22,s*(.53+j%6*.12),dz+.18],j%2?0x8c9357:0x79834e);}}
+  else if(type==="pasture"){for(const dx of [-1.8,0,1.8])m.pole([dx,-.35,0],[dx,1.12,0],.08,.065,0x806c51);for(const h of [.42,.84])m.pole([-1.85,h,0],[1.85,h,0],.046,.046,0x9c8968);}
+ }
+ for(let i=0;i<192;i+=8){
+  const p=trail[i],q=trail[i+1],len=Math.hypot(q.x-p.x,q.z-p.z)||1,x=p.x+(q.z-p.z)*1.55/len,z=p.z-(q.x-p.x)*1.55/len;
+  m.at(x,landY(x,z)-.14,z);m.box(0,0,0,.20,1.55,.21,0x81694b);m.box(0,1.12,0,.211,.30,.221,0xe7dbb5);m.box(0,1.22,0,.214,.095,.224,[0x9a6544,0x507854,0x5b7888][life.lake]);
+ }
+ m.at(0,0,0);
+}
+function drawCountryside(g,px,pz,scale){
+ const world=countryside();
+ const line=(pts,close=false)=>{g.beginPath();pts.forEach((p,i)=>i?g.lineTo(px(p.x),pz(p.z)):g.moveTo(px(p.x),pz(p.z)));if(close)g.closePath();};
+ for(const patch of world.patches){
+  line(patch.rim,true);g.fillStyle=mapTints[patch.type];g.fill();
+  if(patch.type==="hay"||patch.type==="orchard"){
+   g.save();g.clip();g.strokeStyle=patch.type==="hay"?"#aa925e90":"#81966194";g.lineWidth=1;
+   for(let j=-patch.h;j<patch.h;j+=3.4){
+    const row=[-1,1].map(k=>({x:patch.center.x+k*patch.w*patch.cos-j*patch.sin,z:patch.center.z+k*patch.w*patch.sin+j*patch.cos}));
+    line(row);g.stroke();
+   }g.restore();
+  }
+ }
+ for(const t of [...(world.nearTrees||[]),...world.trees]){
+  const x=px(t.x),y=pz(t.z),r=Math.min(4.4,Math.max(.9,scale*1.28))*t.size;
+  g.fillStyle=t.type==="spruce"?"#587f70aa":"#708d63a0";g.beginPath();
+  if(t.type==="spruce"){g.moveTo(x,y-r*1.5);g.lineTo(x+r,y+r);g.lineTo(x-r,y+r);g.closePath();}
+  else g.arc(x,y,r,0,TAU);g.fill();
+ }
+ for(const p of world.props){const x=px(p.x),y=pz(p.z);g.fillStyle=p.type==="scree"?"#919388":p.type==="orchard"?"#748850":p.type==="hay"?"#ad955c":"#8d9e73";g.fillRect(x,y,Math.max(1,scale*1.4),Math.max(1,scale*.7));}
+ for(const path of [world.trail,world.lane]){line(path);g.strokeStyle="#8e7658";g.lineWidth=3.3;g.stroke();g.strokeStyle="#f1deac";g.lineWidth=1.7;g.stroke();}
+}
+function labelCountryside(g,px,pz,w,h){
+ const used=[],positions=[2,4,6,0,3,7];g.save();g.font="italic 13px Georgia";g.textAlign="center";g.lineWidth=3;g.strokeStyle="#ede7c9";g.fillStyle="#3e594b";
+ for(const i of positions){const {type,center}=countryside().patches[i],label=ui(hinterlandNames[type]),x=px(center.x),y=pz(center.z);
+  if(x<64||x>w-64||y<35||y>h-30||used.some(p=>Math.abs(p.x-x)<105&&Math.abs(p.y-y)<17))continue;
+  g.strokeText(label,x,y);g.fillText(label,x,y);used.push({x,y});}
+ g.restore();
+}
 
 const reedIslands=[
  {x:-22,z:6,rx:6.9,rz:2.9},{x:18,z:6,rx:6.8,rz:3.7},
@@ -530,6 +1171,10 @@ function buildLand(){
     if(life.lake===1&&j<3)color=j===0?0x807851:0x9a9153;
     if(life.lake===2&&Math.sin(a)<.30&&j<7)color=[0x7b8589,0x989b95,0x858b8b,0xa2a49a,0x838780,0x92968a,0x858c7e][j];
     if(life.lake===2&&levels[j]>2.6)color=levels[j]>4.55?0x72847e:0x586f5a;
+    const mid=(a+b)/2,r=(levels[j]+levels[j+1])/2;
+    if(r>1.6&&r<3.38){const [x,z]=polar(l,mid,r);
+     if(!inTownClearing(x,z)&&!innClearing(x,z,v))color=countrysideGround(x,z,color,i);
+    }
     m.quad(p(a,levels[j]),p(b,levels[j]),p(b,levels[j+1]),p(a,levels[j+1]),color,.92+rnd()*.1);
    }
  }
@@ -563,6 +1208,7 @@ function buildLand(){
  buildFootpaths(m);
  addLandmarks(m);
  buildTown(m);
+ addCountryside(m);
  return {land:m,water:w};
 }
 
@@ -639,6 +1285,13 @@ function canopyAtlas(){
 }
 function buildForest(v){
  const l=lake(),rand=seeded(93467+l.seed),trees=[],mesh=new Geometry();
+ function canopy(x,y,z,type,wide,h,tint,flipped){
+  for(const [u,vv] of [[0,1],[1,1],[0,0],[1,1],[1,0],[0,0]]){
+   const utex=((type%4)*256+1.5+(flipped?1-u:u)*253)/1024,vtex=(Math.floor(type/4)*512+1.5+vv*509)/1024;
+   mesh.data.push(x,y,z,(u-.5)*wide,(1-vv)*h,utex,vtex,tint,0);
+  }
+ }
+ const outskirts=countryside();
  for(let i=0;i<[820,190,670][life.lake];i++){
   const angle=rand()*TAU,r=1.045+rand()**1.24*1.96,[x,z]=polar(l,angle,r);
   if(inTownClearing(x,z)||innClearing(x,z,v)||[v.home,v.restaurant,v.camp,v.pier].some(p=>Math.hypot(p.x-x,p.z-z)<8)||z>v.tip&&Math.abs(x)<5.6)continue;
@@ -650,12 +1303,15 @@ function buildForest(v){
   const type=(birch?4:0)+Math.floor(rand()*4),h=((birch?6.1:7.3)+rand()**1.2*(birch?7.4:9.3))*(life.lake===1?.48:1);
   const wide=h*(birch?.68:.55)*(.82+rand()*.35),y=landY(x,z)-.09,tint=.85+rand()*.26;
   const flipped=rand()<.5;
-  for(const [u,vv] of [[0,1],[1,1],[0,0],[1,1],[1,0],[0,0]]){
-   const utex=((type%4)*256+1.5+(flipped?1-u:u)*253)/1024,vtex=(Math.floor(type/4)*512+1.5+vv*509)/1024;
-   mesh.data.push(x,y,z,(u-.5)*wide,(1-vv)*h,utex,vtex,tint,0);
-  }
+  if(nearTrail({x,z},outskirts.lane,2.1))continue;
+  canopy(x,y,z,type,wide,h,tint,flipped);
   trees.push({x,z,h,wide});
  }
+ for(const t of outskirts.trees){
+  const pine=t.type==="spruce",h=t.size*(pine?10:t.type==="alder"?6.4:8.5);
+  canopy(t.x,landY(t.x,t.z)-.15,t.z,(pine?0:4)+t.variant,h*(pine?.52:.72),h,.88+.05*t.variant,t.variant%2===0);
+ }
+ outskirts.nearTrees=trees.map(t=>({x:t.x,z:t.z,size:t.h*.095,type:life.lake===2?"spruce":"birch"}));
  return {mesh,trees};
 }
 function canopyShadows(trees,sun,canvas){
@@ -1372,12 +2028,12 @@ function updateInnHUD(place){
  $("roomActions").hidden=!me.room||seated;$("tableTalk").hidden=!seated;
  $("game").classList.toggle("at-table",seated);
  if(seated){const key=[life.lake,life.day,period(life.time),conversation.speaker,conversation.topic,markedReport()?.slot].join("/");
-  if(key!==lastConversation){$("tableTalk").innerHTML=tableDialogue();lastConversation=key;}}
+  if(key!==lastConversation){$("tableTalk").innerHTML=uiMarkup(tableDialogue());lastConversation=key;}}
  $("destination").hidden=!me.guide&&(me.aboard||me.room||place!=="pier"||phase!=="idle");
  if(me.guide){const {trail,next}=routeStep(),p=trail[next],angle=Math.atan2(p.x-me.x,me.z-p.z)-cam;
   const arrow=["↑","↗","→","↘","↓","↙","←","↖"][(Math.round(angle/(TAU/8))%8+8)%8];
   $("destination").textContent=arrow+"  "+v[me.guide].label+" · "+Math.round(Math.hypot(me.x-trail.at(-1).x,me.z-trail.at(-1).z))+" m";
- }else $("destination").textContent="Drogowskaz · dom i gospoda";
+ }else $("destination").textContent=ui("Drogowskaz · dom i gospoda");
 }
 function setRoomSeat(seated){
  const r=me.room;if(!r)return;
@@ -1425,8 +2081,24 @@ function tableDialogue(){
   bait:"U mnie sprawdza się zestaw na "+bait+". Zatrzymaj łódkę obok łowiska i rzuć w stronę znacznika.",
   later:"O "+String(nextHour).padStart(2,"0")+":00 bierze "+fish[next.id][0].toLocaleLowerCase("pl")+". Wypatruj spławika "+next.spot+"."
  };
+ if(language==="en"){
+  const species=ui(f[0]).toLowerCase(),where=ui(r.spot),baitName=ui(stock[f[5]][0]).toLowerCase();
+  const laterName=ui(fish[next.id][0]).toLowerCase(),laterSpot=ui(next.spot),hour=String(nextHour).padStart(2,"0")+":00";
+  Object.assign(lines,speaker===0?{
+   hello:"Pull up a chair. I usually fish from the bank. What would you like to know?",
+   spot:"I’ve been catching "+species+" "+where+" today. You can reach them from the bank.",
+   bait:"Try this bait: "+baitName+". Cast where I showed you and strike as soon as the float dips.",
+   later:"Try again at "+hour+". Keep an eye out for "+laterName+" "+laterSpot+"."
+  }:{
+   hello:"Take a seat. From a boat you can see the little fish scatter when a predator comes through.",
+   spot:"Take the boat out and stop "+where+". I’ve had a good run of "+species+" there today.",
+   bait:"I’d use "+baitName+". Stop your boat beside the fishing spot and cast towards the marker.",
+   later:"Around "+hour+" I’d go after "+laterName+". Try casting "+laterSpot+"."
+  });
+ }
+ const quote=language==="en"?"“":"„";
  const person=(i)=>'<button data-do="speaker|'+i+'" aria-pressed="'+(i===speaker)+'">'+locals[i]+'</button>';
- return '<div class="company">'+person(0)+person(1)+'<button class="stand" data-do="stand">Wstań</button></div><p aria-live="polite"><b>'+locals[speaker]+'</b> „'+lines[topic]+'”</p><div class="questions">'+btn("Gdzie biorą?","ask|spot")+btn("Na co łowić?","ask|bait")+btn("A później?","ask|later")+(["spot","bait"].includes(topic)?btn(activeMark?"Na mapie ✓":"Zaznacz łowisko","pinFish",activeMark):"")+'</div>';
+ return '<div class="company">'+person(0)+person(1)+'<button class="stand" data-do="stand">Wstań</button></div><p aria-live="polite"><b>'+locals[speaker]+'</b> '+quote+lines[topic]+'”</p><div class="questions">'+btn("Gdzie biorą?","ask|spot")+btn("Na co łowić?","ask|bait")+btn("A później?","ask|later")+(["spot","bait"].includes(topic)?btn(activeMark?"Na mapie ✓":"Zaznacz łowisko","pinFish",activeMark):"")+'</div>';
 }
 
 const villageNames=["Brzozowy Brzeg","Czaple Łąki","Kamienny Potok"];
@@ -1509,7 +2181,7 @@ function townPeople(m,t){
 
 const mapPlaces=["restaurant","home","town","pier","camp"];
 let mapView=null;
-function resetMap(){const p=townSite();mapView={lake:life.lake,x:p.x*.34,z:p.z*.21,zoom:1};}
+function resetMap(){const p=townSite();mapView={lake:life.lake,x:p.x*.34,z:p.z*.21,zoom:.72};}
 function mapControl(op){
  if(where!=="map")return;
  if(op==="region"){
@@ -1526,18 +2198,27 @@ function chart(){
  const px=x=>w/2+(x-mapView.x)*scale,pz=z=>h/2+(z-mapView.z)*scale;
  const contour=r=>{g.beginPath();for(let j=0;j<=140;j++){const [x,z]=polar(l,j*TAU/140,r);if(!j)g.moveTo(px(x),pz(z));else g.lineTo(px(x),pz(z));}g.closePath();};
  g.fillStyle="#ded9bd";g.fillRect(0,0,w,h);
- for(let k=1;k<31;k++){contour(1+k*.11);g.strokeStyle=k%5?"#c3c1a5":"#a6af92";g.lineWidth=k%5?.8:1.4;g.stroke();}
+ drawCountryside(g,px,pz,scale);
+ for(let k=1;k<31;k++){contour(1+k*.11);g.strokeStyle=k%5?"#83947835":"#788e754f";g.lineWidth=k%5?.8:1.3;g.stroke();}
  contour(1);g.fillStyle=["#81b2ae","#9eaf88","#80a6b6"][life.lake];g.fill();g.strokeStyle="#527771";g.lineWidth=2;g.stroke();
  for(const r of [.8,.6,.4]){contour(r);g.strokeStyle="#ffffff39";g.lineWidth=1;g.stroke();}
  if(life.lake===1)for(const p of reedIslands){g.fillStyle="#909463";g.beginPath();g.ellipse(px(p.x),pz(p.z),p.rx*scale,p.rz*scale,0,0,TAU);g.fill();}
  if(life.lake===2){const z=-.77*l.rz;g.beginPath();let first=true;for(let x=-l.rx*1.3;x<l.rx*1.3;x+=.5)if(ratio(x,z)<=1.01){if(first)g.moveTo(px(x),pz(z));else g.lineTo(px(x),pz(z));first=false;}g.strokeStyle="#616b68";g.lineWidth=5;g.stroke();}
  for(const id of ["town","restaurant","home"]){const points=footRoute(id);g.beginPath();points.forEach((p,i)=>{if(i===0)g.moveTo(px(p.x),pz(p.z));else g.lineTo(px(p.x),pz(p.z));});g.strokeStyle=id===me.guide?"#a4652b":"#9a825e";g.lineWidth=id===me.guide?4:2;g.stroke();}
  g.fillStyle="#a77a55";plazaLots.forEach(([x,z])=>g.fillRect(px(v.town.x+x)-2*scale,pz(v.town.z+z)-1.6*scale,4*scale,3.2*scale));
+ labelCountryside(g,px,pz,w,h);
  g.textAlign="center";g.font="bold 15px system-ui";const pins=[];
- mapPlaces.forEach((id,i)=>{const p=v[id],x=px(p.x),z=pz(p.z);pins.push({id,x,z});
+ mapPlaces.forEach((id,i)=>{const p=v[id],ax=px(p.x),az=pz(p.z);
+  const clear=(x,z)=>Math.hypot(x-px(me.x),z-pz(me.z))>17&&pins.every(q=>Math.hypot(x-q.x,z-q.z)>24);
+  let x=ax,z=az;
+  for(let k=0;k<32&&!clear(x,z);k++){
+   const a=(i*1.7+k%8)*TAU/8,r=19+Math.floor(k/8)*12;x=ax+Math.cos(a)*r;z=az+Math.sin(a)*r;
+  }
+  if(x!==ax||z!==az){g.beginPath();g.moveTo(ax,az);g.lineTo(x,z);g.strokeStyle="#6d6656";g.lineWidth=1.4;g.stroke();}
+  pins.push({id,x,z});
   g.beginPath();g.arc(x,z,11,0,TAU);g.fillStyle=["#86563b","#5b6e4e","#685477","#536e75","#9b7942"][i];g.fill();g.strokeStyle="#fff2cc";g.lineWidth=1.7;g.stroke();g.fillStyle="#fff4d7";g.fillText(String(i+1),x,z+5.2);});
  const tip=markedReport();if(tip){g.beginPath();g.arc(px(tip.x),pz(tip.z),6.5,0,TAU);g.strokeStyle="#ad5226";g.lineWidth=3;g.stroke();}
- g.beginPath();g.arc(px(me.x)+3,pz(me.z)-3,4.7,0,TAU);g.fillStyle="#b03b32";g.fill();g.strokeStyle="#fff3d5";g.lineWidth=1.8;g.stroke();
+ g.beginPath();g.arc(px(me.x),pz(me.z),4.7,0,TAU);g.fillStyle="#b03b32";g.fill();g.strokeStyle="#fff3d5";g.lineWidth=1.8;g.stroke();
  g.fillStyle="#3b5147";g.textAlign="left";g.font="bold 17px Georgia";g.fillText("N ↑",14,26);
  const len=scale*20;g.fillRect(13,h-15,len,2);g.font="13px system-ui";g.fillText("20 m",13,h-20);
  c.onpointerdown=e=>{e.preventDefault();c.setPointerCapture(e.pointerId);c.dragStart={mx:e.clientX,my:e.clientY,x:mapView.x,z:mapView.z};};
@@ -1609,7 +2290,7 @@ function save(key=saveID){
  life.position={me:{...me},boat:{...boat},cam,pitch,range,elapsed,phase,cast:cast?{...cast}:null};
  try{localStorage.setItem(key,JSON.stringify(life));saveError=false;return true;}catch{saveError=true;return false;}
 }
-function say(text){$("notice").textContent=text;$("notice").hidden=false;clearTimeout(timer);timer=setTimeout(()=>$("notice").hidden=true,3600);}
+function say(text){noticeSource=text;$("notice").textContent=ui(text);$("notice").hidden=false;clearTimeout(timer);timer=setTimeout(()=>$("notice").hidden=true,3600);}
 function resetCast(){phase="idle";cast=null;held=false;}
 function clockText(){const m=Math.floor(life.time*60)%1440;return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");}
 function setupLake(i,position=null,write=true){
@@ -1730,8 +2411,14 @@ function spawnCatch(id){
  let info=fish[id],mass=Math.round((info[1]+(info[2]-info[1])*Math.random()**1.5)*100)/100;
  return {id,mass,value:fishValue(id,mass)};
 }
+function toggleRod(){
+ if(inMenu||book.open||me.room||me.cycling||phase==="fight"||phase==="bite")return;
+ if(cast)resetCast();
+ life.rodStowed=!life.rodStowed;
+ sceneTick=-1;updateHUD();save();cv.focus({preventScroll:true});
+}
 function act(){
- if(book.open||me.room||me.cycling)return;
+ if(book.open||me.room||me.cycling||life.rodStowed)return;
  if(phase==="idle"){
   if(life.energy<5){say("Brakuje energii. Zjedz coś z plecaka albo prześpij się w namiocie.");return;}
   let p=targetPoint();if(!p.valid){say("Obróć widok i skieruj znacznik na wodę.");return;}
@@ -1839,7 +2526,7 @@ function makeScene(t){
  const base=me.aboard?.19+.055*Math.sin(t*1.7)+Math.sin(boarding*Math.PI)*.62:me.y;
  let tip;
  if(me.cycling)m.instance(cycleModel(stat("coat"),0xa5573e,Math.floor(walkCycle*.65)%10,0),me.x,base,me.z,me.a);
- else tip=angler(m,me.x,base,me.z,me.a,stat("coat"),walkCycle,bend,me.aboard,phase!=="idle"||!["restaurant","town"].includes(findPlace()));m.at(0,0,0);
+ else tip=angler(m,me.x,base,me.z,me.a,stat("coat"),walkCycle,bend,me.aboard,!life.rodStowed);m.at(0,0,0);
  if(cast){
   let f=phase==="fight"?cast.progress*.91:0,px=lerp(cast.x,me.x,f),pz=lerp(cast.z,me.z,f);
   const b=phase==="throw"?sat(cast.age/.53):1;px=lerp(tip[0],px,b);pz=lerp(tip[2],pz,b);
@@ -1854,7 +2541,7 @@ function makeScene(t){
   }
   if(b===1){const radius=.25+(t*.45%1);m.ring(px,.026,pz,radius,.017,0x8ab9b0);}
  }else{
-  const p=targetPoint();if(!me.cycling&&p.valid){m.ring(p.x,.036,p.z,.42,.042,0xf2d9a1);m.ring(p.x,.037,p.z,.075,.026,0xe9cc92);}
+  const p=targetPoint();if(!me.cycling&&!life.rodStowed&&p.valid){m.ring(p.x,.036,p.z,.42,.042,0xf2d9a1);m.ring(p.x,.037,p.z,.075,.026,0xe9cc92);}
  }
  drawWildlife(m,t);
  drawVillagers(m,t);
@@ -1901,7 +2588,7 @@ function openBook(k){
 }
 function closeBook(){if(book.open)book.close();where="";keys.clear();held=false;if(inMenu)showMenu();else cv.focus({preventScroll:true});updateHUD();}
 function drawBook(){
- $("bookTitle").textContent=where==="home"?localInn().home:where==="restaurant"?localInn().name:titles[where];$("bookKicker").textContent=lake().name+" · "+clockText()+" · "+zl(life.cash);
+ $("bookTitle").textContent=ui(where==="home"?localInn().home:where==="restaurant"?localInn().name:titles[where]);$("bookKicker").textContent=ui(lake().name+" · "+clockText()+" · "+zl(life.cash));
  let html="";
  if(where==="saves"){html=savePanel();}
  else if(where==="awards"){html=awardPanel();}
@@ -1966,12 +2653,13 @@ function drawBook(){
    html+=row((mapPlaces.indexOf(id)+1)+". "+p.label,(id==="home"?"Dom rybaka · ":id==="restaurant"?"Restauracja · ":id==="town"?"Osada · "+villageEvent()+" · ":"")+"Około "+Math.round(Math.hypot(me.x-p.x,me.z-p.z))+" m",(named?btn("Prowadź pieszo","route|"+id,blocked):"")+btn("Przejdź","go|"+id,blocked));
   }
   const marked=markedReport();if(marked)html+=row("Wskazówka ze stolika",fish[marked.id][0]+" · "+marked.spot+" · "+marked.period);
+  html+="<h3>Na spacer lub rower</h3>"+row(trailNames[life.lake],"Z placu wyjedź na wschód. Szlak ze słupkami okrąża jezioro i wraca do tej samej drogi.");
   html+="<h3>Podróż na inne jezioro</h3>";
   const opened=lakeAccess();
   lakes.forEach((l,i)=>{const locked=!opened.includes(i),g=lakeGates[i];
    const requirements=locked?"<br><strong>Zlecenia "+Math.min(life.paid.length,g.jobs)+"/"+g.jobs+" · Portfel "+Math.min(life.cash,g.cash)+"/"+zl(g.cash)+"</strong>":"";
    html+=row(l.name+" · "+l.region,l.feature+"<br>"+l.fish.map(id=>fish[id][0]).join(" · ")+requirements,btn(i===life.lake?"Jesteś tutaj":locked?"Zablokowane":"Jedź","lake|"+i,locked||i===life.lake||me.aboard||phase!=="idle"));});
-  if(me.aboard)html+="<small>Do podróży zejdź na pomost. Na mapie zaznaczono go kwadratem.</small>";
+  if(me.aboard)html+="<small>Do podróży zejdź na pomost. Na mapie ma numer 4.</small>";
  }else if(where==="bag"){
   html=chipBar([["fish","Ryby"],["food","Prowiant"],["gear","Wyposażenie"],["stats","Postać"]],bagTab,"bagTab");
   if(bagTab==="fish"){
@@ -1998,7 +2686,8 @@ function drawBook(){
  if(where==="guide"&&guideTab==="world")html+="<h3>Pogoda i woda</h3><p>Obserwuj szuwary, fale i niebo. W trakcie dnia nadciągają chmury, deszcz i mgła. Na Trzcinowym opływaj wysepki, a na Głębokim trzymaj się jeziora przed zaporą.</p><h3>Rower i osada</h3><p>Składak kosztuje 240 zł w domu rybaka. Wsiadaj i zsiadaj klawiszem B albo przyciskiem roweru. W osadzie od 10:00 działa targ, a o 18:00 na plac wychodzą tancerze.</p><h3>Przy stoliku</h3><p>Na mapie wybierz gospodę i „Prowadź pieszo”. Idź po złotych śladach do drzwi. W sali zajmij krzesło, wybierz rozmówcę i zapytaj o ryby. Zaznaczone łowisko pojawi się na mapie i na wodzie do końca bieżącej pory żerowania.</p><h3>Kolejne jeziora</h3><p>Trzcinowe wymaga dwóch rozliczonych zleceń i 450 zł w portfelu. Głębokie wymaga czterech i 1200 zł. Pieniądze zachowujesz.</p><h3>W gospodzie</h3><p>Na tablicy czeka inne danie w każdej okolicy. Basia nalewa jasne pełne i porter bałtycki. Stan upojenia sprawdzisz w plecaku. Po piwie postać kołysze się i trudniej utrzymuje kierunek. Efekt słabnie w miarę upływu czasu, także podczas snu.</p>";
  if(where==="catch"&&awardToast){html+='<p class="awardSummary">Zdobyte osiągnięcie · '+awardToast+"</p>";awardToast="";}
  if(where==="guide"&&guideTab==="keys")html+="<p><b>Na telefonie</b> lewy drążek służy do ruchu, a przeciągnięcie po jeziorze obraca kamerę. Przytrzymaj duży przycisk, aby zwijać żyłkę. Przycisk Menu otwiera zapisy i osiągnięcia.</p>";
- $("content").innerHTML=html;
+ if(where==="guide"&&guideTab==="keys")html+="<p>Na telefonie dotknij „Schowaj wędkę” lub „Wyjmij wędkę”. Na komputerze naciśnij R. Schowanie zarzuconego zestawu zwija żyłkę. Podczas brania i holu dokończ połów.</p>";
+ $("content").innerHTML=uiMarkup(html);
  if(where==="map")chart();
  if(where==="catch")fishPicture(latest.id);
 }
@@ -2056,9 +2745,9 @@ function checkAwards(){
 function showMenu(){
  inMenu=true;keys.clear();held=false;resetStick();sceneTick=-1;
  $("game").classList.add("at-menu");$("frontMenu").hidden=false;
- $("resumeGame").firstElementChild.textContent=started?"Wróć do gry":hasAdventure?"Kontynuuj wyprawę":"Rozpocznij wyprawę";
- $("newGame").hidden=!(started||hasAdventure);$("menuLake").textContent=lake().region+" · "+lake().name;
- $("menuStamp").textContent="Dzień "+life.day+"  /  "+clockText();
+ $("resumeGame").firstElementChild.textContent=ui(started?"Wróć do gry":hasAdventure?"Kontynuuj wyprawę":"Rozpocznij wyprawę");
+ $("newGame").hidden=!(started||hasAdventure);$("menuLake").textContent=ui(lake().region+" · "+lake().name);
+ $("menuStamp").textContent=ui("Dzień "+life.day+"  /  "+clockText());
  $("menuAwards").textContent=Object.keys(achievementLog().unlocked).length+" / "+trophies.length;
  $("resumeGame").focus({preventScroll:true});
 }
@@ -2110,6 +2799,8 @@ function handle(action){
  if(["store","overwrite","restore","restart"].includes(op)){saveAction(op,id);return;}
  if(op==="open"){openBook(id);return;}
  if(op==="back"){closeBook();return;}
+ if(op==="language"){setLanguage(id);return;}
+ if(op==="rod"){toggleRod();return;}
  if(op==="cycle"){toggleCycle();return;}
  if(op==="bikes"&&where==="home"){shopTab="kit";openBook("shop");return;}
  if(op==="mapZoom"){mapControl(id);return;}
@@ -2215,30 +2906,32 @@ const sound={
 };
 function updateHUD(){
  if(!me)return;
- $("clock").textContent=clockText();$("lake").textContent=me.room?localInn().name:lake().name;$("cash").textContent=zl(life.cash);$("strength").textContent=strength();$("energy").textContent=Math.ceil(life.energy)+"/100";$("energybar").style.width=life.energy+"%";
+ $("clock").textContent=clockText();$("lake").textContent=ui(me.room?localInn().name:lake().name);$("cash").textContent=zl(life.cash);$("strength").textContent=strength();$("energy").textContent=Math.ceil(life.energy)+"/100";$("energybar").style.width=life.energy+"%";
  const place=findPlace(),location=me.aboard?stock[life.gear.boat][0]:place==="pier"?"Pomost":v[place]?.label||"Brzeg";
- $("location").textContent=lake().region+" · "+weatherAt().name+" · "+location+(life.buzz>=1?" · "+buzzLabel():"");
+ $("location").textContent=ui(lake().region+" · "+weatherAt().name+" · "+location+(life.buzz>=1?" · "+buzzLabel():""));
  const interactLabels={pier:life.gear.boat?"Wsiądź do łodzi":"Przystań",land:"Przybij do pomostu",home:"Wejdź do domu rybaka",restaurant:"Wejdź do restauracji",camp:"Namioty i ognisko"};
  interactLabels.home="Wejdź · "+localInn().home;
  interactLabels.town="Plac · "+villageEvent();
  interactLabels.restaurant=me.room?(me.room.z>3.1&&Math.abs(me.room.x)<.9?"Otwórz drzwi na taras":Math.hypot(me.room.x+.72,me.room.z-.49)>2.5?"Podejdź do stolika":"Usiądź z wędkarzami"):"Wejdź · "+localInn().name;
  updateInnHUD(place);
  $("ride").hidden=!life.owned.includes("skladak")||!!me.room||me.aboard||phase!=="idle";
- $("ride").textContent=me.cycling?"Zsiądź z roweru · B":"Wsiądź na składak · B";
- $("interact").hidden=!place||phase!=="idle";if(place)$("interact").innerHTML="<b>"+interactLabels[place]+"</b><kbd>E</kbd>";
+ $("ride").textContent=ui(me.cycling?"Zsiądź z roweru · B":"Wsiądź na składak · B");
+ $("interact").hidden=!place||phase!=="idle";if(place)$("interact").innerHTML="<b>"+ui(interactLabels[place])+"</b><kbd>E</kbd>";
  const labels={idle:"Zarzuć wędkę",throw:"Zwiń zestaw",wait:"Zwiń zestaw",bite:"Zatnij!",fight:held?"Zwijasz · puść, by odpuścić":"Przytrzymaj i zwijaj"};
- $("cast").firstElementChild.textContent=labels[phase];$("cast").style.background=phase==="bite"?"#ffae63":phase==="fight"?"#b5c597":"";
- const atInn=!!me.room||me.cycling||["restaurant","town"].includes(place)&&phase==="idle"&&!targetPoint().valid;
- $("cast").hidden=atInn;$("rangeLabel").hidden=phase!=="idle"||atInn;$("range").max=stat("rod");$("range").value=range;$("rangeText").textContent=range+" m";$("baitBtn").textContent=stock[life.gear.bait][0];
+ $("cast").firstElementChild.textContent=ui(labels[phase]);$("cast").style.background=phase==="bite"?"#ffae63":phase==="fight"?"#b5c597":"";
+ const rodButton=$("toggleRod");rodButton.hidden=!!me.room||!!me.cycling;rodButton.disabled=phase==="fight"||phase==="bite";
+ rodButton.firstElementChild.textContent=ui(life.rodStowed?"Wyjmij wędkę":"Schowaj wędkę");
+ const atInn=life.rodStowed||!!me.room||me.cycling||["restaurant","town"].includes(place)&&phase==="idle"&&!targetPoint().valid;
+ $("cast").hidden=atInn;$("rangeLabel").hidden=phase!=="idle"||atInn;$("range").max=stat("rod");$("range").value=range;$("rangeText").textContent=range+" m";$("baitBtn").textContent=ui(stock[life.gear.bait][0]);
  $("fightInfo").hidden=phase==="idle";$("fightInfo").querySelector(".tension").hidden=phase!=="fight";
- $("fishStatus").textContent=phase==="bite"?"Branie!":phase==="fight"?"Napięcie żyłki":phase==="throw"?"Rzut":"Obserwuj spławik";
- $("fightProgress").textContent=phase==="fight"?"Hol "+Math.floor(cast.progress*100)+"% · "+(cast.tension>.74?"puść zwijanie":cast.tension<.36?"zwijaj teraz":"zielone pole"):phase==="bite"?"Naciśnij spację lub przycisk zacięcia.":"";
+ $("fishStatus").textContent=ui(phase==="bite"?"Branie!":phase==="fight"?"Napięcie żyłki":phase==="throw"?"Rzut":"Obserwuj spławik");
+ $("fightProgress").textContent=ui(phase==="fight"?"Hol "+Math.floor(cast.progress*100)+"% · "+(cast.tension>.74?"puść zwijanie":cast.tension<.36?"zwijaj teraz":"zielone pole"):phase==="bite"?"Naciśnij spację lub przycisk zacięcia.":"");
  if(phase==="fight"){const q=fightProfile(cast);$("pin").style.left=cast.tension*100+"%";
   $("zone").style.left=q.low*100+"%";$("zone").style.width=(q.high-q.low)*100+"%";
-  $("fishStatus").textContent="Hol · trudność "+q.rank+"/5";$("fightProgress").textContent=Math.floor(cast.progress*100)+"% · "+(cast.tension>q.high?"odpuść":cast.tension<q.low?"zwijaj":q.pull>.68?"zryw ryby":"zielone pole");}
- $("lesson").hidden=!!me.room||!!me.guide||me.cycling||place==="town"||(!life.tutorial&&!lessonBoat)||!firstHelp||phase!=="idle";
- $("lessonTitle").textContent=lessonBoat?"Pierwsze wypłynięcie":"Pierwszy połów";
- $("lessonText").textContent=lessonBoat?"Wypłyń na jezioro, zatrzymaj łódź i zarzuć wędkę. Po powrocie wybierz „Przybij do pomostu”.":"Zarzuć wędkę w jasny okrąg. Gdy spławik zanurkuje, zatnij. Podczas holu przytrzymuj i puszczaj zwijanie.";
+  $("fishStatus").textContent=ui("Hol · trudność "+q.rank+"/5");$("fightProgress").textContent=ui(Math.floor(cast.progress*100)+"% · "+(cast.tension>q.high?"odpuść":cast.tension<q.low?"zwijaj":q.pull>.68?"zryw ryby":"zielone pole"));}
+ $("lesson").hidden=!!life.rodStowed||!!me.room||!!me.guide||me.cycling||place==="town"||(!life.tutorial&&!lessonBoat)||!firstHelp||phase!=="idle";
+ $("lessonTitle").textContent=ui(lessonBoat?"Pierwsze wypłynięcie":"Pierwszy połów");
+ $("lessonText").textContent=ui(lessonBoat?"Wypłyń na jezioro, zatrzymaj łódź i zarzuć wędkę. Po powrocie wybierz „Przybij do pomostu”.":"Zarzuć wędkę w jasny okrąg. Gdy spławik zanurkuje, zatnij. Podczas holu przytrzymuj i puszczaj zwijanie.");
 }
 function onPrimaryDown(e){
  sound.start();if(e.button!==undefined&&e.button!==0)return;
@@ -2258,7 +2951,7 @@ $("close").onclick=closeBook;book.addEventListener("cancel",e=>{e.preventDefault
 book.addEventListener("click",e=>{if(e.target===book){const r=book.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeBook();}});
 $("dismiss").onclick=()=>{life.tutorial=false;lessonBoat=false;save();updateHUD();};
 $("baitBtn").onclick=()=>openBook("bait");$("interact").onclick=interact;
-$("sound").onclick=()=>{sound.enabled=!sound.enabled;if(sound.enabled)sound.start();if(sound.master)sound.master.gain.value=sound.enabled?.31:0;$("sound").textContent=sound.enabled?"♪":"♩";$("sound").setAttribute("aria-label",sound.enabled?"Wycisz dźwięk":"Włącz dźwięk");$("sound").style.opacity=sound.enabled?1:.55;};
+$("sound").onclick=()=>{sound.enabled=!sound.enabled;if(sound.enabled)sound.start();if(sound.master)sound.master.gain.value=sound.enabled?.31:0;$("sound").textContent=sound.enabled?"♪":"♩";$("sound").setAttribute("aria-label",ui(sound.enabled?"Wycisz dźwięk":"Włącz dźwięk"));$("sound").style.opacity=sound.enabled?1:.55;};
 $("range").oninput=e=>{range=Number(e.target.value);updateHUD();};
 let dragging=null;
 cv.addEventListener("pointerdown",e=>{if(book.open||inMenu||dragging)return;cv.focus();cv.setPointerCapture(e.pointerId);dragging=[e.clientX,e.clientY,e.pointerId];});
@@ -2288,6 +2981,7 @@ window.addEventListener("keydown",e=>{
  if(e.repeat)return;sound.start();keys.add(e.code);
  if(e.code==="Space")onPrimaryDown(e);
  if(e.code==="KeyE")interact();
+ if(e.code==="KeyR")toggleRod();
  if(e.code==="KeyB")toggleCycle();
  if(e.code==="KeyI")openBook("bag");if(e.code==="KeyM")openBook("map");if(e.code==="KeyH")openBook("guide");
 });
@@ -2313,10 +3007,11 @@ function loop(now){
  requestAnimationFrame(loop);
 }
 function boot(){
+ prepareLanguage();
  try{eng=new Engine(cv);setupLake(life.lake,life.position,false);checkAwards();showMenu();requestAnimationFrame(loop);}
- catch(e){console.error(e);$("error").hidden=false;$("error").textContent="Do uruchomienia widoku 3D włącz przyspieszenie grafiki w przeglądarce i otwórz grę ponownie.";}
+ catch(e){console.error(e);$("error").hidden=false;$("error").textContent=ui("Do uruchomienia widoku 3D włącz przyspieszenie grafiki w przeglądarce i otwórz grę ponownie.");}
 }
-cv.addEventListener("webglcontextlost",e=>{e.preventDefault();pauseInput();$("error").hidden=false;$("error").textContent="Przywracanie obrazu 3D…";});
+cv.addEventListener("webglcontextlost",e=>{e.preventDefault();pauseInput();$("error").hidden=false;$("error").textContent=ui("Przywracanie obrazu 3D…");});
 cv.addEventListener("webglcontextrestored",()=>location.reload());
 boot();
 </script></body></html>

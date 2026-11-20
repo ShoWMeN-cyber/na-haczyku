@@ -71,6 +71,13 @@ function canopyAtlas(){
 }
 function buildForest(v){
  const l=lake(),rand=seeded(93467+l.seed),trees=[],mesh=new Geometry();
+ function canopy(x,y,z,type,wide,h,tint,flipped){
+  for(const [u,vv] of [[0,1],[1,1],[0,0],[1,1],[1,0],[0,0]]){
+   const utex=((type%4)*256+1.5+(flipped?1-u:u)*253)/1024,vtex=(Math.floor(type/4)*512+1.5+vv*509)/1024;
+   mesh.data.push(x,y,z,(u-.5)*wide,(1-vv)*h,utex,vtex,tint,0);
+  }
+ }
+ const outskirts=countryside();
  for(let i=0;i<[820,190,670][life.lake];i++){
   const angle=rand()*TAU,r=1.045+rand()**1.24*1.96,[x,z]=polar(l,angle,r);
   if(inTownClearing(x,z)||innClearing(x,z,v)||[v.home,v.restaurant,v.camp,v.pier].some(p=>Math.hypot(p.x-x,p.z-z)<8)||z>v.tip&&Math.abs(x)<5.6)continue;
@@ -82,12 +89,15 @@ function buildForest(v){
   const type=(birch?4:0)+Math.floor(rand()*4),h=((birch?6.1:7.3)+rand()**1.2*(birch?7.4:9.3))*(life.lake===1?.48:1);
   const wide=h*(birch?.68:.55)*(.82+rand()*.35),y=landY(x,z)-.09,tint=.85+rand()*.26;
   const flipped=rand()<.5;
-  for(const [u,vv] of [[0,1],[1,1],[0,0],[1,1],[1,0],[0,0]]){
-   const utex=((type%4)*256+1.5+(flipped?1-u:u)*253)/1024,vtex=(Math.floor(type/4)*512+1.5+vv*509)/1024;
-   mesh.data.push(x,y,z,(u-.5)*wide,(1-vv)*h,utex,vtex,tint,0);
-  }
+  if(nearTrail({x,z},outskirts.lane,2.1))continue;
+  canopy(x,y,z,type,wide,h,tint,flipped);
   trees.push({x,z,h,wide});
  }
+ for(const t of outskirts.trees){
+  const pine=t.type==="spruce",h=t.size*(pine?10:t.type==="alder"?6.4:8.5);
+  canopy(t.x,landY(t.x,t.z)-.15,t.z,(pine?0:4)+t.variant,h*(pine?.52:.72),h,.88+.05*t.variant,t.variant%2===0);
+ }
+ outskirts.nearTrees=trees.map(t=>({x:t.x,z:t.z,size:t.h*.095,type:life.lake===2?"spruce":"birch"}));
  return {mesh,trees};
 }
 function canopyShadows(trees,sun,canvas){

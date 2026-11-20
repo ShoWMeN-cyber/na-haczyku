@@ -29,6 +29,22 @@ function tableDialogue(){
   bait:"U mnie sprawdza się zestaw na "+bait+". Zatrzymaj łódkę obok łowiska i rzuć w stronę znacznika.",
   later:"O "+String(nextHour).padStart(2,"0")+":00 bierze "+fish[next.id][0].toLocaleLowerCase("pl")+". Wypatruj spławika "+next.spot+"."
  };
+ if(language==="en"){
+  const species=ui(f[0]).toLowerCase(),where=ui(r.spot),baitName=ui(stock[f[5]][0]).toLowerCase();
+  const laterName=ui(fish[next.id][0]).toLowerCase(),laterSpot=ui(next.spot),hour=String(nextHour).padStart(2,"0")+":00";
+  Object.assign(lines,speaker===0?{
+   hello:"Pull up a chair. I usually fish from the bank. What would you like to know?",
+   spot:"I’ve been catching "+species+" "+where+" today. You can reach them from the bank.",
+   bait:"Try this bait: "+baitName+". Cast where I showed you and strike as soon as the float dips.",
+   later:"Try again at "+hour+". Keep an eye out for "+laterName+" "+laterSpot+"."
+  }:{
+   hello:"Take a seat. From a boat you can see the little fish scatter when a predator comes through.",
+   spot:"Take the boat out and stop "+where+". I’ve had a good run of "+species+" there today.",
+   bait:"I’d use "+baitName+". Stop your boat beside the fishing spot and cast towards the marker.",
+   later:"Around "+hour+" I’d go after "+laterName+". Try casting "+laterSpot+"."
+  });
+ }
+ const quote=language==="en"?"“":"„";
  const person=(i)=>'<button data-do="speaker|'+i+'" aria-pressed="'+(i===speaker)+'">'+locals[i]+'</button>';
- return '<div class="company">'+person(0)+person(1)+'<button class="stand" data-do="stand">Wstań</button></div><p aria-live="polite"><b>'+locals[speaker]+'</b> „'+lines[topic]+'”</p><div class="questions">'+btn("Gdzie biorą?","ask|spot")+btn("Na co łowić?","ask|bait")+btn("A później?","ask|later")+(["spot","bait"].includes(topic)?btn(activeMark?"Na mapie ✓":"Zaznacz łowisko","pinFish",activeMark):"")+'</div>';
+ return '<div class="company">'+person(0)+person(1)+'<button class="stand" data-do="stand">Wstań</button></div><p aria-live="polite"><b>'+locals[speaker]+'</b> '+quote+lines[topic]+'”</p><div class="questions">'+btn("Gdzie biorą?","ask|spot")+btn("Na co łowić?","ask|bait")+btn("A później?","ask|later")+(["spot","bait"].includes(topic)?btn(activeMark?"Na mapie ✓":"Zaznacz łowisko","pinFish",activeMark):"")+'</div>';
 }

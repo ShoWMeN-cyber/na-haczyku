@@ -48,3 +48,10 @@ dialog:has(.chart){width:min(830px,96vw)}[hidden]{display:none!important}
 @media(max-width:760px){#destination{left:12px;top:138px;max-width:68vw}#ride{right:12px;top:163px;max-width:50vw}#tableTalk{padding:8px 10px}#tableTalk button{min-height:40px}}
 @media(max-width:610px){#destination{top:137px;max-width:72vw}#ride{top:185px}#tableTalk p{font-size:16px}#lesson:not([hidden]){top:192px}}
 @media(max-height:540px) and (orientation:landscape){#destination{left:12px;top:135px;font-size:12px}#ride{top:62px;right:14px}#tableTalk{left:auto;right:9px;bottom:6px;transform:none;width:min(455px,60vw);padding:6px 9px}#tableTalk p{font-size:14px;margin:5px 0}#tableTalk button{min-height:30px;font-size:12px;padding:3px 7px}}
+.languageSwitch{position:absolute;top:max(16px,env(safe-area-inset-top));right:max(18px,env(safe-area-inset-right));display:flex;gap:2px;padding:3px;background:#172c27de;border:1px solid #dac69880;border-radius:5px}
+.languageSwitch button{border:0;border-radius:3px;background:transparent;color:#fff4df;padding:8px 12px;min-height:40px;font:600 14px/1 system-ui}
+.languageSwitch button[aria-pressed=true]{background:#e8cda1;color:#23362c}
+#actions #toggleRod{justify-self:end;gap:12px;padding:6px 10px;min-height:34px;font-size:13px}
+@media(pointer:coarse),(max-width:610px){#actions #toggleRod,.languageSwitch button{min-height:44px}}
+@media(max-height:540px) and (orientation:landscape){.languageSwitch{top:max(8px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right))}}
+

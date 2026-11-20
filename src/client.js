@@ -4,6 +4,8 @@ function handle(action){
  if(["store","overwrite","restore","restart"].includes(op)){saveAction(op,id);return;}
  if(op==="open"){openBook(id);return;}
  if(op==="back"){closeBook();return;}
+ if(op==="language"){setLanguage(id);return;}
+ if(op==="rod"){toggleRod();return;}
  if(op==="cycle"){toggleCycle();return;}
  if(op==="bikes"&&where==="home"){shopTab="kit";openBook("shop");return;}
  if(op==="mapZoom"){mapControl(id);return;}
@@ -109,30 +111,32 @@ const sound={
 };
 function updateHUD(){
  if(!me)return;
- $("clock").textContent=clockText();$("lake").textContent=me.room?localInn().name:lake().name;$("cash").textContent=zl(life.cash);$("strength").textContent=strength();$("energy").textContent=Math.ceil(life.energy)+"/100";$("energybar").style.width=life.energy+"%";
+ $("clock").textContent=clockText();$("lake").textContent=ui(me.room?localInn().name:lake().name);$("cash").textContent=zl(life.cash);$("strength").textContent=strength();$("energy").textContent=Math.ceil(life.energy)+"/100";$("energybar").style.width=life.energy+"%";
  const place=findPlace(),location=me.aboard?stock[life.gear.boat][0]:place==="pier"?"Pomost":v[place]?.label||"Brzeg";
- $("location").textContent=lake().region+" · "+weatherAt().name+" · "+location+(life.buzz>=1?" · "+buzzLabel():"");
+ $("location").textContent=ui(lake().region+" · "+weatherAt().name+" · "+location+(life.buzz>=1?" · "+buzzLabel():""));
  const interactLabels={pier:life.gear.boat?"Wsiądź do łodzi":"Przystań",land:"Przybij do pomostu",home:"Wejdź do domu rybaka",restaurant:"Wejdź do restauracji",camp:"Namioty i ognisko"};
  interactLabels.home="Wejdź · "+localInn().home;
  interactLabels.town="Plac · "+villageEvent();
  interactLabels.restaurant=me.room?(me.room.z>3.1&&Math.abs(me.room.x)<.9?"Otwórz drzwi na taras":Math.hypot(me.room.x+.72,me.room.z-.49)>2.5?"Podejdź do stolika":"Usiądź z wędkarzami"):"Wejdź · "+localInn().name;
  updateInnHUD(place);
  $("ride").hidden=!life.owned.includes("skladak")||!!me.room||me.aboard||phase!=="idle";
- $("ride").textContent=me.cycling?"Zsiądź z roweru · B":"Wsiądź na składak · B";
- $("interact").hidden=!place||phase!=="idle";if(place)$("interact").innerHTML="<b>"+interactLabels[place]+"</b><kbd>E</kbd>";
+ $("ride").textContent=ui(me.cycling?"Zsiądź z roweru · B":"Wsiądź na składak · B");
+ $("interact").hidden=!place||phase!=="idle";if(place)$("interact").innerHTML="<b>"+ui(interactLabels[place])+"</b><kbd>E</kbd>";
  const labels={idle:"Zarzuć wędkę",throw:"Zwiń zestaw",wait:"Zwiń zestaw",bite:"Zatnij!",fight:held?"Zwijasz · puść, by odpuścić":"Przytrzymaj i zwijaj"};
- $("cast").firstElementChild.textContent=labels[phase];$("cast").style.background=phase==="bite"?"#ffae63":phase==="fight"?"#b5c597":"";
- const atInn=!!me.room||me.cycling||["restaurant","town"].includes(place)&&phase==="idle"&&!targetPoint().valid;
- $("cast").hidden=atInn;$("rangeLabel").hidden=phase!=="idle"||atInn;$("range").max=stat("rod");$("range").value=range;$("rangeText").textContent=range+" m";$("baitBtn").textContent=stock[life.gear.bait][0];
+ $("cast").firstElementChild.textContent=ui(labels[phase]);$("cast").style.background=phase==="bite"?"#ffae63":phase==="fight"?"#b5c597":"";
+ const rodButton=$("toggleRod");rodButton.hidden=!!me.room||!!me.cycling;rodButton.disabled=phase==="fight"||phase==="bite";
+ rodButton.firstElementChild.textContent=ui(life.rodStowed?"Wyjmij wędkę":"Schowaj wędkę");
+ const atInn=life.rodStowed||!!me.room||me.cycling||["restaurant","town"].includes(place)&&phase==="idle"&&!targetPoint().valid;
+ $("cast").hidden=atInn;$("rangeLabel").hidden=phase!=="idle"||atInn;$("range").max=stat("rod");$("range").value=range;$("rangeText").textContent=range+" m";$("baitBtn").textContent=ui(stock[life.gear.bait][0]);
  $("fightInfo").hidden=phase==="idle";$("fightInfo").querySelector(".tension").hidden=phase!=="fight";
- $("fishStatus").textContent=phase==="bite"?"Branie!":phase==="fight"?"Napięcie żyłki":phase==="throw"?"Rzut":"Obserwuj spławik";
- $("fightProgress").textContent=phase==="fight"?"Hol "+Math.floor(cast.progress*100)+"% · "+(cast.tension>.74?"puść zwijanie":cast.tension<.36?"zwijaj teraz":"zielone pole"):phase==="bite"?"Naciśnij spację lub przycisk zacięcia.":"";
+ $("fishStatus").textContent=ui(phase==="bite"?"Branie!":phase==="fight"?"Napięcie żyłki":phase==="throw"?"Rzut":"Obserwuj spławik");
+ $("fightProgress").textContent=ui(phase==="fight"?"Hol "+Math.floor(cast.progress*100)+"% · "+(cast.tension>.74?"puść zwijanie":cast.tension<.36?"zwijaj teraz":"zielone pole"):phase==="bite"?"Naciśnij spację lub przycisk zacięcia.":"");
  if(phase==="fight"){const q=fightProfile(cast);$("pin").style.left=cast.tension*100+"%";
   $("zone").style.left=q.low*100+"%";$("zone").style.width=(q.high-q.low)*100+"%";
-  $("fishStatus").textContent="Hol · trudność "+q.rank+"/5";$("fightProgress").textContent=Math.floor(cast.progress*100)+"% · "+(cast.tension>q.high?"odpuść":cast.tension<q.low?"zwijaj":q.pull>.68?"zryw ryby":"zielone pole");}
- $("lesson").hidden=!!me.room||!!me.guide||me.cycling||place==="town"||(!life.tutorial&&!lessonBoat)||!firstHelp||phase!=="idle";
- $("lessonTitle").textContent=lessonBoat?"Pierwsze wypłynięcie":"Pierwszy połów";
- $("lessonText").textContent=lessonBoat?"Wypłyń na jezioro, zatrzymaj łódź i zarzuć wędkę. Po powrocie wybierz „Przybij do pomostu”.":"Zarzuć wędkę w jasny okrąg. Gdy spławik zanurkuje, zatnij. Podczas holu przytrzymuj i puszczaj zwijanie.";
+  $("fishStatus").textContent=ui("Hol · trudność "+q.rank+"/5");$("fightProgress").textContent=ui(Math.floor(cast.progress*100)+"% · "+(cast.tension>q.high?"odpuść":cast.tension<q.low?"zwijaj":q.pull>.68?"zryw ryby":"zielone pole"));}
+ $("lesson").hidden=!!life.rodStowed||!!me.room||!!me.guide||me.cycling||place==="town"||(!life.tutorial&&!lessonBoat)||!firstHelp||phase!=="idle";
+ $("lessonTitle").textContent=ui(lessonBoat?"Pierwsze wypłynięcie":"Pierwszy połów");
+ $("lessonText").textContent=ui(lessonBoat?"Wypłyń na jezioro, zatrzymaj łódź i zarzuć wędkę. Po powrocie wybierz „Przybij do pomostu”.":"Zarzuć wędkę w jasny okrąg. Gdy spławik zanurkuje, zatnij. Podczas holu przytrzymuj i puszczaj zwijanie.");
 }
 function onPrimaryDown(e){
  sound.start();if(e.button!==undefined&&e.button!==0)return;
@@ -152,7 +156,7 @@ $("close").onclick=closeBook;book.addEventListener("cancel",e=>{e.preventDefault
 book.addEventListener("click",e=>{if(e.target===book){const r=book.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeBook();}});
 $("dismiss").onclick=()=>{life.tutorial=false;lessonBoat=false;save();updateHUD();};
 $("baitBtn").onclick=()=>openBook("bait");$("interact").onclick=interact;
-$("sound").onclick=()=>{sound.enabled=!sound.enabled;if(sound.enabled)sound.start();if(sound.master)sound.master.gain.value=sound.enabled?.31:0;$("sound").textContent=sound.enabled?"♪":"♩";$("sound").setAttribute("aria-label",sound.enabled?"Wycisz dźwięk":"Włącz dźwięk");$("sound").style.opacity=sound.enabled?1:.55;};
+$("sound").onclick=()=>{sound.enabled=!sound.enabled;if(sound.enabled)sound.start();if(sound.master)sound.master.gain.value=sound.enabled?.31:0;$("sound").textContent=sound.enabled?"♪":"♩";$("sound").setAttribute("aria-label",ui(sound.enabled?"Wycisz dźwięk":"Włącz dźwięk"));$("sound").style.opacity=sound.enabled?1:.55;};
 $("range").oninput=e=>{range=Number(e.target.value);updateHUD();};
 let dragging=null;
 cv.addEventListener("pointerdown",e=>{if(book.open||inMenu||dragging)return;cv.focus();cv.setPointerCapture(e.pointerId);dragging=[e.clientX,e.clientY,e.pointerId];});
@@ -182,6 +186,7 @@ window.addEventListener("keydown",e=>{
  if(e.repeat)return;sound.start();keys.add(e.code);
  if(e.code==="Space")onPrimaryDown(e);
  if(e.code==="KeyE")interact();
+ if(e.code==="KeyR")toggleRod();
  if(e.code==="KeyB")toggleCycle();
  if(e.code==="KeyI")openBook("bag");if(e.code==="KeyM")openBook("map");if(e.code==="KeyH")openBook("guide");
 });
@@ -207,9 +212,10 @@ function loop(now){
  requestAnimationFrame(loop);
 }
 function boot(){
+ prepareLanguage();
  try{eng=new Engine(cv);setupLake(life.lake,life.position,false);checkAwards();showMenu();requestAnimationFrame(loop);}
- catch(e){console.error(e);$("error").hidden=false;$("error").textContent="Do uruchomienia widoku 3D włącz przyspieszenie grafiki w przeglądarce i otwórz grę ponownie.";}
+ catch(e){console.error(e);$("error").hidden=false;$("error").textContent=ui("Do uruchomienia widoku 3D włącz przyspieszenie grafiki w przeglądarce i otwórz grę ponownie.");}
 }
-cv.addEventListener("webglcontextlost",e=>{e.preventDefault();pauseInput();$("error").hidden=false;$("error").textContent="Przywracanie obrazu 3D…";});
+cv.addEventListener("webglcontextlost",e=>{e.preventDefault();pauseInput();$("error").hidden=false;$("error").textContent=ui("Przywracanie obrazu 3D…");});
 cv.addEventListener("webglcontextrestored",()=>location.reload());
 boot();
